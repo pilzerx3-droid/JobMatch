@@ -363,7 +363,7 @@ export const getGetJobsUrl = (params?: GetJobsParams,) => {
 }
 
 /**
- * @summary Get job feed for swiping
+ * @summary Get job feed for swiping (auth optional — guests get all active jobs, authenticated users get personalized feed)
  */
 export const getJobs = async (params?: GetJobsParams, options?: RequestInit): Promise<JobsResponse> => {
 
@@ -410,7 +410,7 @@ export type GetJobsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get job feed for swiping
+ * @summary Get job feed for swiping (auth optional — guests get all active jobs, authenticated users get personalized feed)
  */
 
 export function useGetJobs<TData = Awaited<ReturnType<typeof getJobs>>, TError = ErrorType<unknown>>(
@@ -440,7 +440,7 @@ export const getGetJobUrl = (jobId: number,) => {
 }
 
 /**
- * @summary Get job details
+ * @summary Get job details (auth optional)
  */
 export const getJob = async (jobId: number, options?: RequestInit): Promise<Job> => {
 
@@ -487,7 +487,7 @@ export type GetJobQueryError = ErrorType<void>
 
 
 /**
- * @summary Get job details
+ * @summary Get job details (auth optional)
  */
 
 export function useGetJob<TData = Awaited<ReturnType<typeof getJob>>, TError = ErrorType<void>>(

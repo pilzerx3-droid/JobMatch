@@ -96,7 +96,7 @@ export const CompleteOnboardingResponse = zod.object({
 
 
 /**
- * @summary Get job feed for swiping
+ * @summary Get job feed for swiping (auth optional — guests get all active jobs, authenticated users get personalized feed)
  */
 export const getJobsQueryPageDefault = 1;
 export const getJobsQueryLimitDefault = 10;
@@ -141,7 +141,7 @@ export const GetJobsResponse = zod.object({
 
 
 /**
- * @summary Get job details
+ * @summary Get job details (auth optional)
  */
 export const GetJobParams = zod.object({
   "jobId": zod.coerce.number()

@@ -1,9 +1,10 @@
 import type { Job } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -40,13 +41,56 @@ const EXP_COLORS: Record<string, string> = {
   any: "#6B7280",
 };
 
+const JOB_TYPE_COLORS: Record<string, string> = {
+  fulltime: "#6366F1",
+  contract: "#F59E0B",
+  parttime: "#8B5CF6",
+  internship: "#10B981",
+};
+
+const JOB_TYPE_LABELS: Record<string, string> = {
+  fulltime: "Full-time",
+  contract: "Contract",
+  parttime: "Part-time",
+  internship: "Internship",
+};
+
 function formatSalary(min?: number | null, max?: number | null): string | null {
-  const fmt = (n: number) =>
-    n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
+  const fmt = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`);
   if (min && max) return `${fmt(min)} – ${fmt(max)}`;
   if (min) return `${fmt(min)}+`;
   if (max) return `Up to ${fmt(max)}`;
   return null;
+}
+
+function CompanyLogo({
+  logoUrl,
+  name,
+  colors,
+}: {
+  logoUrl?: string | null;
+  name: string;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  const [error, setError] = useState(false);
+  const initials = name.substring(0, 2).toUpperCase();
+
+  if (logoUrl && !error) {
+    return (
+      <Image
+        source={{ uri: logoUrl }}
+        style={styles.companyLogoImage}
+        onError={() => setError(true)}
+        resizeMode="contain"
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.companyLogoFallback, { backgroundColor: colors.secondary }]}>
+      <Text style={[styles.companyInitials, { color: colors.primary }]}>{initials}</Text>
+    </View>
+  );
 }
 
 export function SwipeCard({
@@ -122,7 +166,8 @@ export function SwipeCard({
   const salary = formatSalary(job.salaryMin, job.salaryMax);
   const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
   const expColor = EXP_COLORS[job.experienceLevel] ?? "#6B7280";
-  const initials = job.company.name.substring(0, 2).toUpperCase();
+  const jtColor = JOB_TYPE_COLORS[job.jobType] ?? "#6B7280";
+  const jtLabel = JOB_TYPE_LABELS[job.jobType] ?? job.jobType;
 
   const cardTransform = isTop
     ? [{ translateX: position.x }, { translateY: position.y }, { rotate }]
@@ -143,14 +188,10 @@ export function SwipeCard({
     >
       {isTop && (
         <>
-          <Animated.View
-            style={[styles.overlay, styles.saveOverlay, { opacity: saveOpacity }]}
-          >
+          <Animated.View style={[styles.overlay, styles.saveOverlay, { opacity: saveOpacity }]}>
             <Text style={[styles.overlayText, { color: "#22C55E" }]}>SAVE ♥</Text>
           </Animated.View>
-          <Animated.View
-            style={[styles.overlay, styles.skipOverlay, { opacity: skipOpacity }]}
-          >
+          <Animated.View style={[styles.overlay, styles.skipOverlay, { opacity: skipOpacity }]}>
             <Text style={[styles.overlayText, { color: "#EF4444" }]}>SKIP ✕</Text>
           </Animated.View>
         </>
@@ -158,18 +199,25 @@ export function SwipeCard({
 
       <Pressable style={styles.pressable} onPress={isTop ? onPress : undefined}>
         <View style={styles.topRow}>
-          <View style={[styles.companyLogo, { backgroundColor: colors.secondary }]}>
-            <Text style={[styles.companyInitials, { color: colors.primary }]}>
-              {initials}
-            </Text>
+          <View style={styles.logoWrapper}>
+            <CompanyLogo
+              logoUrl={job.company.logoUrl}
+              name={job.company.name}
+              colors={colors}
+            />
           </View>
-          {job.matchScore != null && (
-            <View style={[styles.matchBadge, { backgroundColor: "#22C55E20" }]}>
-              <Text style={[styles.matchText, { color: "#22C55E" }]}>
-                {job.matchScore}% match
-              </Text>
+          <View style={styles.topRight}>
+            {job.matchScore != null && (
+              <View style={[styles.matchBadge, { backgroundColor: "#22C55E20" }]}>
+                <Text style={[styles.matchText, { color: "#22C55E" }]}>
+                  {job.matchScore}% match
+                </Text>
+              </View>
+            )}
+            <View style={[styles.pill, { backgroundColor: jtColor + "22" }]}>
+              <Text style={[styles.pillText, { color: jtColor }]}>{jtLabel}</Text>
             </View>
-          )}
+          </View>
         </View>
 
         <Text style={[styles.jobTitle, { color: colors.foreground }]} numberOfLines={2}>
@@ -177,42 +225,38 @@ export function SwipeCard({
         </Text>
         <Text style={[styles.companyName, { color: colors.mutedForeground }]}>
           {job.company.name}
+          {job.company.website && (
+            <Text style={{ fontSize: 12 }}> · {job.company.website.replace(/^https?:\/\//, "")}</Text>
+          )}
         </Text>
 
         <View style={styles.metaRow}>
           {job.location && (
             <View style={styles.metaItem}>
               <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-              <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
+              <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
                 {job.location}
               </Text>
             </View>
           )}
-          <View
-            style={[
-              styles.remotePill,
-              { backgroundColor: remoteColor + "22" },
-            ]}
-          >
-            <Text style={[styles.remotePillText, { color: remoteColor }]}>
+          <View style={[styles.pill, { backgroundColor: remoteColor + "22" }]}>
+            <Text style={[styles.pillText, { color: remoteColor }]}>
               {job.remoteType.toUpperCase()}
             </Text>
           </View>
-          <View
-            style={[
-              styles.remotePill,
-              { backgroundColor: expColor + "22" },
-            ]}
-          >
-            <Text style={[styles.remotePillText, { color: expColor }]}>
+          <View style={[styles.pill, { backgroundColor: expColor + "22" }]}>
+            <Text style={[styles.pillText, { color: expColor }]}>
               {job.experienceLevel.toUpperCase()}
             </Text>
           </View>
         </View>
 
-        {salary && (
-          <Text style={[styles.salary, { color: colors.foreground }]}>{salary}</Text>
-        )}
+        {salary ? (
+          <View style={styles.salaryRow}>
+            <Feather name="dollar-sign" size={16} color={colors.foreground} />
+            <Text style={[styles.salary, { color: colors.foreground }]}>{salary} / year</Text>
+          </View>
+        ) : null}
 
         <Text
           style={[styles.description, { color: colors.mutedForeground }]}
@@ -223,27 +267,32 @@ export function SwipeCard({
 
         {job.tags.length > 0 && (
           <View style={styles.tags}>
-            {job.tags.slice(0, 5).map((tag) => (
+            {job.tags.slice(0, 6).map((tag) => (
               <View
                 key={tag}
-                style={[styles.tag, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+                style={[
+                  styles.tag,
+                  { backgroundColor: colors.secondary, borderColor: colors.border },
+                ]}
               >
-                <Text style={[styles.tagText, { color: colors.mutedForeground }]}>
-                  {tag}
-                </Text>
+                <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{tag}</Text>
               </View>
             ))}
           </View>
         )}
 
-        <View style={styles.swipeHint}>
-          <View style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}>
+        <View style={[styles.swipeHint, { borderTopColor: colors.border }]}>
+          <View
+            style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}
+          >
             <Feather name="x" size={22} color="#EF4444" />
           </View>
           <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
-            Tap to see full details
+            Tap card for details
           </Text>
-          <View style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}>
+          <View
+            style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}
+          >
             <Feather name="heart" size={22} color="#22C55E" />
           </View>
         </View>
@@ -251,6 +300,8 @@ export function SwipeCard({
     </Animated.View>
   );
 }
+
+const LOGO_SIZE = 56;
 
 const styles = StyleSheet.create({
   card: {
@@ -277,59 +328,66 @@ const styles = StyleSheet.create({
   saveOverlay: { right: 20, borderColor: "#22C55E" },
   skipOverlay: { left: 20, borderColor: "#EF4444" },
   overlayText: { fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold" },
-  pressable: { padding: 20, gap: 10 },
+  pressable: { padding: 18, gap: 10 },
   topRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  companyLogo: {
-    width: 52,
-    height: 52,
+  logoWrapper: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 14,
+    overflow: "hidden",
+  },
+  companyLogoImage: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
+    borderRadius: 14,
+  },
+  companyLogoFallback: {
+    width: LOGO_SIZE,
+    height: LOGO_SIZE,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
   companyInitials: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  matchBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 100 },
+  topRight: { gap: 6, alignItems: "flex-end" },
+  matchBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
   matchText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
+  pillText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   jobTitle: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.3,
-    lineHeight: 28,
+    lineHeight: 27,
   },
-  companyName: { fontSize: 15, fontFamily: "Inter_400Regular", marginTop: -4 },
+  companyName: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: -4 },
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
-  metaItem: { flexDirection: "row", gap: 4, alignItems: "center" },
-  metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  remotePill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
-  remotePillText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  salary: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  description: { fontSize: 14, lineHeight: 20, fontFamily: "Inter_400Regular" },
+  metaItem: { flexDirection: "row", gap: 4, alignItems: "center", flexShrink: 1 },
+  metaText: { fontSize: 12, fontFamily: "Inter_400Regular", flexShrink: 1 },
+  salaryRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  salary: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  description: { fontSize: 13, lineHeight: 19, fontFamily: "Inter_400Regular" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  tagText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
+  tagText: { fontSize: 11, fontFamily: "Inter_400Regular" },
   swipeHint: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
+    marginTop: 4,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.08)",
   },
   hintBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",

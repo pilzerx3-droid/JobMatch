@@ -92,9 +92,7 @@ paths:
     get:
       operationId: getJobs
       tags: [jobs]
-      summary: Get job feed for swiping
-      security:
-        - clerkAuth: []
+      summary: Get job feed for swiping (auth optional — guests get all active jobs, authenticated users get personalized feed)
       parameters:
         - name: page
           in: query
@@ -130,9 +128,7 @@ paths:
     get:
       operationId: getJob
       tags: [jobs]
-      summary: Get job details
-      security:
-        - clerkAuth: []
+      summary: Get job details (auth optional)
       parameters:
         - name: jobId
           in: path

@@ -6,8 +6,9 @@ import {
   swipeActionsTable,
   userProfilesTable,
 } from "@workspace/db";
-import { eq, and, notInArray, desc, count, sql } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
+import { eq, and, notInArray, desc, count } from "drizzle-orm";
+import { optionalAuth, requireAuth, type AuthRequest } from "../middlewares/requireAuth";
+import { syncFromRemotive, jobsCount } from "../services/syncJobs";
 
 const router = Router();
 
@@ -19,20 +20,13 @@ function calculateMatchScore(job: JobRow, user: UserProfile): number {
   let score = 0;
 
   if (user.experienceLevel) {
-    if (job.experienceLevel === user.experienceLevel || job.experienceLevel === "any") {
-      score += 34;
-    }
+    if (job.experienceLevel === user.experienceLevel || job.experienceLevel === "any") score += 34;
   } else {
     score += 17;
   }
 
   if (user.remotePreference) {
-    if (
-      user.remotePreference === "any" ||
-      job.remoteType === user.remotePreference
-    ) {
-      score += 33;
-    }
+    if (user.remotePreference === "any" || job.remoteType === user.remotePreference) score += 33;
   } else {
     score += 17;
   }
@@ -49,11 +43,11 @@ function calculateMatchScore(job: JobRow, user: UserProfile): number {
   return Math.min(100, score);
 }
 
-function formatJob(
+function serializeJob(
   job: JobRow,
   company: CompanyRow | null,
-  user: UserProfile,
-  isSaved = false
+  matchScore: number | null,
+  isSaved: boolean
 ) {
   return {
     id: job.id,
@@ -78,28 +72,49 @@ function formatJob(
     fullDescription: job.fullDescription,
     applyUrl: job.applyUrl,
     source: job.source,
-    matchScore: calculateMatchScore(job, user),
+    matchScore,
     isSaved,
     createdAt: job.createdAt?.toISOString(),
   };
 }
 
-router.get("/", requireAuth, async (req, res, next) => {
+let syncPromise: Promise<void> | null = null;
+
+async function ensureJobs() {
+  if ((await jobsCount()) === 0) {
+    await syncFromRemotive(150, true);
+  }
+}
+
+router.get("/", optionalAuth, async (req, res, next) => {
   try {
-    const { userProfile } = req as AuthRequest;
-    const { page = "1", limit = "10", experienceLevel, remoteType } = req.query as Record<string, string>;
+    const userProfile = (req as AuthRequest).userProfile ?? null;
 
-    const swipedRows = await db
-      .select({ jobId: swipeActionsTable.jobId })
-      .from(swipeActionsTable)
-      .where(eq(swipeActionsTable.userId, userProfile.id));
-
-    const swipedIds = swipedRows.map((r) => r.jobId);
-
-    const conditions = [eq(jobsTable.isActive, true)];
-    if (swipedIds.length > 0) {
-      conditions.push(notInArray(jobsTable.id, swipedIds) as any);
+    if (!syncPromise) {
+      syncPromise = ensureJobs().catch(() => {});
     }
+    await syncPromise;
+
+    const {
+      page = "1",
+      limit = "10",
+      experienceLevel,
+      remoteType,
+    } = req.query as Record<string, string>;
+
+    const conditions: ReturnType<typeof eq>[] = [eq(jobsTable.isActive, true)];
+
+    if (userProfile) {
+      const swipedRows = await db
+        .select({ jobId: swipeActionsTable.jobId })
+        .from(swipeActionsTable)
+        .where(eq(swipeActionsTable.userId, userProfile.id));
+      const swipedIds = swipedRows.map((r) => r.jobId);
+      if (swipedIds.length > 0) {
+        conditions.push(notInArray(jobsTable.id, swipedIds) as any);
+      }
+    }
+
     if (experienceLevel) conditions.push(eq(jobsTable.experienceLevel, experienceLevel) as any);
     if (remoteType) conditions.push(eq(jobsTable.remoteType, remoteType) as any);
 
@@ -121,7 +136,14 @@ router.get("/", requireAuth, async (req, res, next) => {
     const total = Number(totalRows[0]?.count ?? 0);
 
     res.json({
-      jobs: jobs.map(({ job, company }) => formatJob(job, company, userProfile, false)),
+      jobs: jobs.map(({ job, company }) =>
+        serializeJob(
+          job,
+          company,
+          userProfile ? calculateMatchScore(job, userProfile) : null,
+          false
+        )
+      ),
       total,
       hasMore: offset + jobs.length < total,
     });
@@ -130,9 +152,9 @@ router.get("/", requireAuth, async (req, res, next) => {
   }
 });
 
-router.get("/:jobId", requireAuth, async (req, res, next) => {
+router.get("/:jobId", optionalAuth, async (req, res, next) => {
   try {
-    const { userProfile } = req as AuthRequest;
+    const userProfile = (req as AuthRequest).userProfile ?? null;
     const jobId = Number(req.params.jobId);
 
     const [result] = await db
@@ -147,19 +169,30 @@ router.get("/:jobId", requireAuth, async (req, res, next) => {
       return;
     }
 
-    const saved = await db
-      .select()
-      .from(swipeActionsTable)
-      .where(
-        and(
-          eq(swipeActionsTable.userId, userProfile.id),
-          eq(swipeActionsTable.jobId, jobId),
-          eq(swipeActionsTable.direction, "right")
+    let isSaved = false;
+    if (userProfile) {
+      const saved = await db
+        .select()
+        .from(swipeActionsTable)
+        .where(
+          and(
+            eq(swipeActionsTable.userId, userProfile.id),
+            eq(swipeActionsTable.jobId, jobId),
+            eq(swipeActionsTable.direction, "right")
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
+      isSaved = saved.length > 0;
+    }
 
-    res.json(formatJob(result.job, result.company, userProfile, saved.length > 0));
+    res.json(
+      serializeJob(
+        result.job,
+        result.company,
+        userProfile ? calculateMatchScore(result.job, userProfile) : null,
+        isSaved
+      )
+    );
   } catch (err) {
     next(err);
   }
@@ -180,10 +213,7 @@ router.post("/:jobId/swipe", requireAuth, async (req, res, next) => {
       .select()
       .from(swipeActionsTable)
       .where(
-        and(
-          eq(swipeActionsTable.userId, userProfile.id),
-          eq(swipeActionsTable.jobId, jobId)
-        )
+        and(eq(swipeActionsTable.userId, userProfile.id), eq(swipeActionsTable.jobId, jobId))
       )
       .limit(1);
 
@@ -193,11 +223,7 @@ router.post("/:jobId/swipe", requireAuth, async (req, res, next) => {
         .set({ direction })
         .where(eq(swipeActionsTable.id, existing[0].id));
     } else {
-      await db.insert(swipeActionsTable).values({
-        userId: userProfile.id,
-        jobId,
-        direction,
-      });
+      await db.insert(swipeActionsTable).values({ userId: userProfile.id, jobId, direction });
     }
 
     res.json({ success: true, saved: direction === "right" });

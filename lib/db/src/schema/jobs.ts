@@ -5,6 +5,7 @@ import { companiesTable } from "./companies";
 
 export const jobsTable = pgTable("jobs", {
   id: serial("id").primaryKey(),
+  externalId: text("external_id").unique(),
   title: text("title").notNull(),
   companyId: integer("company_id").references(() => companiesTable.id),
   location: text("location"),
