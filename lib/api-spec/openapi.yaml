@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: SwipeJobs API - Tinder/TikTok for Jobs
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User profile operations
+  - name: jobs
+    description: Job discovery operations
+  - name: savedJobs
+    description: Saved jobs operations
+  - name: admin
+    description: Admin operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +32,325 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users/me:
+    get:
+      operationId: getMyProfile
+      tags: [users]
+      summary: Get current user profile
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+    patch:
+      operationId: updateMyProfile
+      tags: [users]
+      summary: Update current user profile
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserProfileRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/me/complete-onboarding:
+    post:
+      operationId: completeOnboarding
+      tags: [users]
+      summary: Complete user onboarding
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingRequest"
+      responses:
+        "200":
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /jobs:
+    get:
+      operationId: getJobs
+      tags: [jobs]
+      summary: Get job feed for swiping
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: experienceLevel
+          in: query
+          schema:
+            type: string
+        - name: remoteType
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job feed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsResponse"
+
+  /jobs/{jobId}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      summary: Get job details
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
+
+  /jobs/{jobId}/swipe:
+    post:
+      operationId: swipeJob
+      tags: [jobs]
+      summary: Swipe on a job (left=dismiss, right=save)
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwipeRequest"
+      responses:
+        "200":
+          description: Swipe recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SwipeResponse"
+
+  /saved-jobs:
+    get:
+      operationId: getSavedJobs
+      tags: [savedJobs]
+      summary: Get user's saved jobs
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Saved jobs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedJobsResponse"
+
+  /saved-jobs/{jobId}:
+    delete:
+      operationId: unsaveJob
+      tags: [savedJobs]
+      summary: Remove job from saved
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job unsaved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/users:
+    get:
+      operationId: adminGetUsers
+      tags: [admin]
+      summary: Admin - list all users
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersResponse"
+
+  /admin/jobs:
+    get:
+      operationId: adminGetJobs
+      tags: [admin]
+      summary: Admin - list all jobs
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Job list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobsResponse"
+    post:
+      operationId: adminCreateJob
+      tags: [admin]
+      summary: Admin - create a job
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobRequest"
+      responses:
+        "201":
+          description: Created job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /admin/jobs/{jobId}:
+    patch:
+      operationId: adminUpdateJob
+      tags: [admin]
+      summary: Admin - update a job
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobRequest"
+      responses:
+        "200":
+          description: Updated job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: adminDeleteJob
+      tags: [admin]
+      summary: Admin - delete a job
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /admin/analytics:
+    get:
+      operationId: adminGetAnalytics
+      tags: [admin]
+      summary: Admin - get platform analytics
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analytics"
+
+  /admin/jobs/import:
+    post:
+      operationId: adminImportJobs
+      tags: [admin]
+      summary: Admin - trigger job import
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResponse"
+
 components:
+  securitySchemes:
+    clerkAuth:
+      type: http
+      scheme: bearer
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +360,355 @@ components:
       required:
         - status
 
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive]
+          nullable: true
+        preferredLocation:
+          type: string
+          nullable: true
+        remotePreference:
+          type: string
+          enum: [remote, hybrid, onsite, any]
+          nullable: true
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        jobCategories:
+          type: array
+          items:
+            type: string
+        onboardingCompleted:
+          type: boolean
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - clerkId
+        - email
+        - onboardingCompleted
+        - isAdmin
+        - jobCategories
+        - createdAt
+
+    UpdateUserProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive]
+        preferredLocation:
+          type: string
+        remotePreference:
+          type: string
+          enum: [remote, hybrid, onsite, any]
+        salaryMin:
+          type: integer
+        salaryMax:
+          type: integer
+        jobCategories:
+          type: array
+          items:
+            type: string
+
+    OnboardingRequest:
+      type: object
+      properties:
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive]
+        preferredLocation:
+          type: string
+        remotePreference:
+          type: string
+          enum: [remote, hybrid, onsite, any]
+        salaryMin:
+          type: integer
+        salaryMax:
+          type: integer
+        jobCategories:
+          type: array
+          items:
+            type: string
+      required:
+        - experienceLevel
+        - remotePreference
+        - jobCategories
+
+    Company:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        website:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        company:
+          $ref: "#/components/schemas/Company"
+        location:
+          type: string
+          nullable: true
+        remoteType:
+          type: string
+          enum: [remote, hybrid, onsite]
+        salaryMin:
+          type: integer
+          nullable: true
+        salaryMax:
+          type: integer
+          nullable: true
+        jobType:
+          type: string
+          enum: [fulltime, parttime, contract, internship]
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive, any]
+        tags:
+          type: array
+          items:
+            type: string
+        shortDescription:
+          type: string
+        fullDescription:
+          type: string
+        applyUrl:
+          type: string
+        source:
+          type: string
+        matchScore:
+          type: integer
+          nullable: true
+          description: Match percentage 0-100 based on user preferences
+        isSaved:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - company
+        - remoteType
+        - jobType
+        - experienceLevel
+        - tags
+        - shortDescription
+        - fullDescription
+        - applyUrl
+        - source
+        - isSaved
+        - createdAt
+
+    SwipeRequest:
+      type: object
+      properties:
+        direction:
+          type: string
+          enum: [left, right]
+      required:
+        - direction
+
+    SwipeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        saved:
+          type: boolean
+      required:
+        - success
+        - saved
+
+    JobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+        total:
+          type: integer
+        hasMore:
+          type: boolean
+      required:
+        - jobs
+        - total
+        - hasMore
+
+    SavedJobsResponse:
+      type: object
+      properties:
+        savedJobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/Job"
+      required:
+        - savedJobs
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+
+    AdminUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        total:
+          type: integer
+      required:
+        - users
+        - total
+
+    CreateJobRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        companyId:
+          type: integer
+        companyName:
+          type: string
+        location:
+          type: string
+        remoteType:
+          type: string
+          enum: [remote, hybrid, onsite]
+        salaryMin:
+          type: integer
+        salaryMax:
+          type: integer
+        jobType:
+          type: string
+          enum: [fulltime, parttime, contract, internship]
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive, any]
+        tags:
+          type: array
+          items:
+            type: string
+        shortDescription:
+          type: string
+        fullDescription:
+          type: string
+        applyUrl:
+          type: string
+      required:
+        - title
+        - remoteType
+        - jobType
+        - experienceLevel
+        - shortDescription
+        - fullDescription
+        - applyUrl
+
+    UpdateJobRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        location:
+          type: string
+        remoteType:
+          type: string
+          enum: [remote, hybrid, onsite]
+        salaryMin:
+          type: integer
+        salaryMax:
+          type: integer
+        jobType:
+          type: string
+          enum: [fulltime, parttime, contract, internship]
+        experienceLevel:
+          type: string
+          enum: [junior, mid, senior, lead, executive, any]
+        tags:
+          type: array
+          items:
+            type: string
+        shortDescription:
+          type: string
+        fullDescription:
+          type: string
+        applyUrl:
+          type: string
+        isActive:
+          type: boolean
+
+    Analytics:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        totalJobs:
+          type: integer
+        totalSwipes:
+          type: integer
+        totalSaved:
+          type: integer
+        swipesLast7Days:
+          type: integer
+        newUsersLast7Days:
+          type: integer
+      required:
+        - totalUsers
+        - totalJobs
+        - totalSwipes
+        - totalSaved
+        - swipesLast7Days
+        - newUsersLast7Days
+
+    ImportResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+        message:
+          type: string
+      required:
+        - imported
+        - message
