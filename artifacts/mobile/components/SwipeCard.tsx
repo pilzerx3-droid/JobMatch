@@ -1,7 +1,8 @@
 import type { Job } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
-import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Extrapolation,
@@ -19,11 +20,13 @@ import { useColors } from "@/hooks/useColors";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
-const LOGO_SIZE = 56;
+const LOGO_SIZE = 60;
 
-// Stable module-level function for runOnJS compatibility
 function triggerHapticMedium() {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+}
+function triggerHapticSuccess() {
+  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 }
 
 export interface SwipeCardHandle {
@@ -45,7 +48,6 @@ const REMOTE_COLORS: Record<string, string> = {
   hybrid: "#F59E0B",
   onsite: "#3B82F6",
 };
-
 const EXP_COLORS: Record<string, string> = {
   junior: "#60A5FA",
   mid: "#A78BFA",
@@ -54,14 +56,12 @@ const EXP_COLORS: Record<string, string> = {
   executive: "#FBBF24",
   any: "#6B7280",
 };
-
 const JOB_TYPE_COLORS: Record<string, string> = {
   fulltime: "#6366F1",
   contract: "#F59E0B",
   parttime: "#8B5CF6",
   internship: "#10B981",
 };
-
 const JOB_TYPE_LABELS: Record<string, string> = {
   fulltime: "Full-time",
   contract: "Contract",
@@ -90,7 +90,6 @@ function CompanyLogo({
 }) {
   const [error, setError] = useState(false);
   const initials = name.substring(0, 2).toUpperCase();
-
   if (logoUrl && !error) {
     return (
       <Image
@@ -101,7 +100,6 @@ function CompanyLogo({
       />
     );
   }
-
   return (
     <View style={[styles.logoFallback, { backgroundColor: bgColor }]}>
       <Text style={[styles.logoInitials, { color: fgColor }]}>{initials}</Text>
@@ -114,6 +112,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
     const colors = useColors();
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
+    const entryProgress = useSharedValue(0);
 
     const onSwipeLeftRef = useRef(onSwipeLeft);
     const onSwipeRightRef = useRef(onSwipeRight);
@@ -124,34 +123,30 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       ? Date.now() - new Date(job.createdAt).getTime() < SEVEN_DAYS_MS
       : false;
 
+    useEffect(() => {
+      entryProgress.value = withSpring(1, { damping: 14, stiffness: 120, mass: 0.9 });
+    }, []);
+
     useImperativeHandle(ref, () => ({
       swipeLeft: () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        translateX.value = withTiming(
-          -(SCREEN_WIDTH + 150),
-          { duration: 300 },
-          (done) => {
-            if (done) {
-              translateX.value = 0;
-              translateY.value = 0;
-              runOnJS(onSwipeLeftRef.current)();
-            }
+        translateX.value = withTiming(-(SCREEN_WIDTH + 150), { duration: 300 }, (done) => {
+          if (done) {
+            translateX.value = 0;
+            translateY.value = 0;
+            runOnJS(onSwipeLeftRef.current)();
           }
-        );
+        });
       },
       swipeRight: () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-        translateX.value = withTiming(
-          SCREEN_WIDTH + 150,
-          { duration: 300 },
-          (done) => {
-            if (done) {
-              translateX.value = 0;
-              translateY.value = 0;
-              runOnJS(onSwipeRightRef.current)();
-            }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        translateX.value = withTiming(SCREEN_WIDTH + 150, { duration: 300 }, (done) => {
+          if (done) {
+            translateX.value = 0;
+            translateY.value = 0;
+            runOnJS(onSwipeRightRef.current)();
           }
-        );
+        });
       },
     }));
 
@@ -164,44 +159,41 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       })
       .onEnd((e) => {
         if (e.translationX > SWIPE_THRESHOLD) {
-          runOnJS(triggerHapticMedium)();
-          translateX.value = withTiming(
-            SCREEN_WIDTH + 150,
-            { duration: 280 },
-            (done) => {
-              if (done) {
-                translateX.value = 0;
-                translateY.value = 0;
-                runOnJS(onSwipeRightRef.current)();
-              }
+          runOnJS(triggerHapticSuccess)();
+          translateX.value = withTiming(SCREEN_WIDTH + 150, { duration: 280 }, (done) => {
+            if (done) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(onSwipeRightRef.current)();
             }
-          );
+          });
         } else if (e.translationX < -SWIPE_THRESHOLD) {
           runOnJS(triggerHapticMedium)();
-          translateX.value = withTiming(
-            -(SCREEN_WIDTH + 150),
-            { duration: 280 },
-            (done) => {
-              if (done) {
-                translateX.value = 0;
-                translateY.value = 0;
-                runOnJS(onSwipeLeftRef.current)();
-              }
+          translateX.value = withTiming(-(SCREEN_WIDTH + 150), { duration: 280 }, (done) => {
+            if (done) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(onSwipeLeftRef.current)();
             }
-          );
+          });
         } else {
-          translateX.value = withSpring(0, { damping: 15 });
-          translateY.value = withSpring(0, { damping: 15 });
+          translateX.value = withSpring(0, { damping: 18, stiffness: 200 });
+          translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
         }
       });
 
     const cardStyle = useAnimatedStyle(() => {
       if (!isTop) {
+        const targetScale = 1 - stackIndex * 0.04;
+        const scale = interpolate(
+          entryProgress.value,
+          [0, 1],
+          [0.88, targetScale],
+          Extrapolation.CLAMP
+        );
         return {
-          transform: [
-            { scale: 1 - stackIndex * 0.04 },
-            { translateY: stackIndex * 10 },
-          ],
+          transform: [{ scale }, { translateY: stackIndex * 12 }],
+          opacity: interpolate(entryProgress.value, [0, 0.5], [0, 1], Extrapolation.CLAMP),
         };
       }
       const rotate = interpolate(
@@ -210,32 +202,60 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         [-15, 0, 15],
         Extrapolation.CLAMP
       );
+      const entryScale = interpolate(entryProgress.value, [0, 1], [0.88, 1], Extrapolation.CLAMP);
+      const entryY = interpolate(entryProgress.value, [0, 1], [32, 0], Extrapolation.CLAMP);
       return {
+        opacity: entryProgress.value,
         transform: [
           { translateX: translateX.value },
-          { translateY: translateY.value },
+          { translateY: translateY.value + entryY },
           { rotate: `${rotate}deg` },
+          { scale: entryScale },
         ],
       };
     });
 
-    const saveOverlayStyle = useAnimatedStyle(() => ({
+    const saveTintStyle = useAnimatedStyle(() => ({
       opacity: interpolate(
         translateX.value,
-        [0, SWIPE_THRESHOLD * 0.6],
+        [0, SWIPE_THRESHOLD],
         [0, 1],
         Extrapolation.CLAMP
       ),
     }));
-
-    const skipOverlayStyle = useAnimatedStyle(() => ({
+    const skipTintStyle = useAnimatedStyle(() => ({
       opacity: interpolate(
         translateX.value,
-        [-SWIPE_THRESHOLD * 0.6, 0],
+        [-SWIPE_THRESHOLD, 0],
         [1, 0],
         Extrapolation.CLAMP
       ),
     }));
+
+    const saveStampStyle = useAnimatedStyle(() => {
+      const p = interpolate(
+        translateX.value,
+        [0, SWIPE_THRESHOLD * 0.4],
+        [0, 1],
+        Extrapolation.CLAMP
+      );
+      return {
+        opacity: p,
+        transform: [{ scale: interpolate(p, [0, 1], [0.4, 1], Extrapolation.CLAMP) }],
+      };
+    });
+    const skipStampStyle = useAnimatedStyle(() => {
+      const p = interpolate(
+        translateX.value,
+        [-SWIPE_THRESHOLD * 0.4, 0],
+        [1, 0],
+        Extrapolation.CLAMP
+      );
+      return {
+        opacity: p,
+        transform: [{ scale: interpolate(p, [0, 1], [0.4, 1], Extrapolation.CLAMP) }],
+      };
+    });
 
     const salary = formatSalary(job.salaryMin, job.salaryMax);
     const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
@@ -258,43 +278,80 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         >
           {isTop && (
             <>
-              <Animated.View style={[styles.overlay, styles.saveOverlay, saveOverlayStyle]}>
-                <Text style={[styles.overlayText, { color: "#22C55E" }]}>SAVE ♥</Text>
+              <Animated.View
+                style={[StyleSheet.absoluteFillObject, saveTintStyle]}
+                pointerEvents="none"
+              >
+                <LinearGradient
+                  colors={["#22C55E55", "#22C55E08"]}
+                  start={{ x: 1, y: 0.5 }}
+                  end={{ x: 0, y: 0.5 }}
+                  style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]}
+                />
               </Animated.View>
-              <Animated.View style={[styles.overlay, styles.skipOverlay, skipOverlayStyle]}>
-                <Text style={[styles.overlayText, { color: "#EF4444" }]}>SKIP ✕</Text>
+              <Animated.View
+                style={[StyleSheet.absoluteFillObject, skipTintStyle]}
+                pointerEvents="none"
+              >
+                <LinearGradient
+                  colors={["#EF444455", "#EF444408"]}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={[StyleSheet.absoluteFillObject, { borderRadius: 28 }]}
+                />
+              </Animated.View>
+
+              <Animated.View style={[styles.saveStamp, saveStampStyle]}>
+                <Text style={styles.saveStampText}>SAVE ♥</Text>
+              </Animated.View>
+              <Animated.View style={[styles.skipStamp, skipStampStyle]}>
+                <Text style={styles.skipStampText}>SKIP ✕</Text>
               </Animated.View>
             </>
           )}
 
           <Pressable style={styles.pressable} onPress={isTop ? onPress : undefined}>
+            <LinearGradient
+              colors={[colors.primary + "18", "transparent"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientHeader}
+            />
+
             <View style={styles.topRow}>
-              {/* Company logo with glow ring */}
               <View
                 style={[
-                  styles.logoGlowOuter,
+                  styles.logoContainer,
                   {
                     borderColor: colors.primary + "50",
                     shadowColor: colors.primary,
                   },
                 ]}
               >
-                <View style={[styles.logoWrapper, { backgroundColor: colors.secondary }]}>
-                  <CompanyLogo
-                    logoUrl={job.company.logoUrl}
-                    name={job.company.name}
-                    bgColor={colors.secondary}
-                    fgColor={colors.primary}
-                  />
-                </View>
+                <CompanyLogo
+                  logoUrl={job.company.logoUrl}
+                  name={job.company.name}
+                  bgColor={colors.secondary}
+                  fgColor={colors.primary}
+                />
               </View>
 
               <View style={styles.topRight}>
                 {job.matchScore != null && (
-                  <View style={[styles.pill, { backgroundColor: "#22C55E20" }]}>
-                    <Text style={[styles.pillText, { color: "#22C55E" }]}>
-                      {job.matchScore}% match
-                    </Text>
+                  <View
+                    style={[
+                      styles.matchBadge,
+                      { shadowColor: "#22C55E" },
+                    ]}
+                  >
+                    <LinearGradient
+                      colors={["#22C55E", "#16A34A"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.matchBadgeGradient}
+                    >
+                      <Text style={styles.matchBadgeText}>⚡ {job.matchScore}%</Text>
+                    </LinearGradient>
                   </View>
                 )}
                 {isNew && (
@@ -340,21 +397,20 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
             </View>
 
             {salary ? (
-              <View
-                style={[
-                  styles.salaryHighlight,
-                  { backgroundColor: colors.secondary, borderColor: colors.border },
-                ]}
+              <LinearGradient
+                colors={[colors.primary + "22", colors.primary + "08"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.salaryBadge}
               >
                 <Feather name="dollar-sign" size={14} color={colors.primary} />
-                <Text style={[styles.salary, { color: colors.foreground }]}>
+                <Text style={[styles.salaryText, { color: colors.foreground }]}>
                   {salary}
                   <Text style={[styles.salaryPeriod, { color: colors.mutedForeground }]}>
-                    {" "}
-                    / yr
+                    {" / yr"}
                   </Text>
                 </Text>
-              </View>
+              </LinearGradient>
             ) : null}
 
             <Text
@@ -381,13 +437,17 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
             )}
 
             <View style={[styles.swipeHint, { borderTopColor: colors.border }]}>
-              <View style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}>
+              <View
+                style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}
+              >
                 <Feather name="x" size={20} color="#EF4444" />
               </View>
               <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
                 {isTop ? "swipe or tap buttons" : ""}
               </Text>
-              <View style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}>
+              <View
+                style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}
+              >
                 <Feather name="heart" size={20} color="#22C55E" />
               </View>
             </View>
@@ -404,90 +464,133 @@ const styles = StyleSheet.create({
   card: {
     position: "absolute",
     width: "100%",
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.28,
+    shadowRadius: 36,
+    elevation: 16,
   },
-  overlay: {
+  gradientHeader: {
     position: "absolute",
-    top: 24,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 170,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+  },
+  saveStamp: {
+    position: "absolute",
+    top: 28,
+    right: 20,
     zIndex: 100,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 3,
+    borderColor: "#22C55E",
+    backgroundColor: "#22C55E20",
+    transform: [{ rotate: "14deg" }],
   },
-  saveOverlay: { right: 20, borderColor: "#22C55E" },
-  skipOverlay: { left: 20, borderColor: "#EF4444" },
-  overlayText: { fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold" },
-  pressable: { padding: 18, gap: 10 },
+  saveStampText: {
+    fontSize: 22,
+    fontWeight: "900",
+    fontFamily: "Inter_700Bold",
+    color: "#22C55E",
+    letterSpacing: 0.5,
+  },
+  skipStamp: {
+    position: "absolute",
+    top: 28,
+    left: 20,
+    zIndex: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: "#EF4444",
+    backgroundColor: "#EF444420",
+    transform: [{ rotate: "-14deg" }],
+  },
+  skipStampText: {
+    fontSize: 22,
+    fontWeight: "900",
+    fontFamily: "Inter_700Bold",
+    color: "#EF4444",
+    letterSpacing: 0.5,
+  },
+  pressable: { padding: 20, gap: 11 },
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     marginBottom: 2,
   },
-  logoGlowOuter: {
+  logoContainer: {
     width: LOGO_SIZE + 8,
     height: LOGO_SIZE + 8,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  logoWrapper: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    borderRadius: 14,
+    borderRadius: 20,
+    borderWidth: 2,
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  logoImage: { width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: 14 },
+  logoImage: { width: LOGO_SIZE, height: LOGO_SIZE },
   logoFallback: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
-    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  logoInitials: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  logoInitials: { fontSize: 22, fontWeight: "800", fontFamily: "Inter_700Bold" },
   topRight: { gap: 6, alignItems: "flex-end" },
+  matchBadge: {
+    borderRadius: 100,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.45,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  matchBadgeGradient: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
+  matchBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    color: "#FFFFFF",
+  },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   pillText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   jobTitle: {
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
-    letterSpacing: -0.3,
-    lineHeight: 27,
+    letterSpacing: -0.4,
+    lineHeight: 28,
   },
   companyName: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: -4 },
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
   metaItem: { flexDirection: "row", gap: 4, alignItems: "center", flexShrink: 1 },
   metaText: { fontSize: 12, fontFamily: "Inter_400Regular", flexShrink: 1 },
-  salaryHighlight: {
+  salaryBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 14,
     alignSelf: "flex-start",
   },
-  salary: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  salaryText: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
   salaryPeriod: { fontSize: 13, fontWeight: "400", fontFamily: "Inter_400Regular" },
-  description: { fontSize: 13, lineHeight: 19, fontFamily: "Inter_400Regular" },
+  description: { fontSize: 13, lineHeight: 20, fontFamily: "Inter_400Regular" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
   tagText: { fontSize: 11, fontFamily: "Inter_400Regular" },

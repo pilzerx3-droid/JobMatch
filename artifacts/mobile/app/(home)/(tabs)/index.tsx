@@ -11,6 +11,7 @@ import { useAuth, useSSO } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
 import * as AuthSession from "expo-auth-session";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -25,6 +26,11 @@ import {
   TextInput,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -203,6 +209,46 @@ function SignupWallModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function AnimatedActionButton({
+  onPress,
+  direction,
+}: {
+  onPress: () => void;
+  direction: "left" | "right";
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const isSkip = direction === "left";
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={[
+          styles.actionBtn,
+          { shadowColor: isSkip ? "#EF4444" : "#22C55E" },
+        ]}
+        onPress={onPress}
+        onPressIn={() => {
+          scale.value = withSpring(0.82, { damping: 8, stiffness: 400 });
+        }}
+        onPressOut={() => {
+          scale.value = withSpring(1, { damping: 6, stiffness: 300 });
+        }}
+      >
+        <LinearGradient
+          colors={isSkip ? ["#FF5252", "#EF4444"] : ["#4ADE80", "#22C55E"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <Feather name={isSkip ? "x" : "heart"} size={30} color="#FFFFFF" />
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -507,29 +553,25 @@ export default function DiscoverScreen() {
           </View>
 
           <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
-            <Pressable
-              style={[styles.actionBtn, styles.skipBtn]}
+            <AnimatedActionButton
+              direction="left"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                 topCardRef.current?.swipeLeft();
               }}
-            >
-              <Feather name="x" size={26} color="#EF4444" />
-            </Pressable>
+            />
             <View style={styles.tipContainer}>
               <Text style={[styles.tipText, { color: colors.mutedForeground }]}>
                 ← skip · save →
               </Text>
             </View>
-            <Pressable
-              style={[styles.actionBtn, styles.saveBtn]}
+            <AnimatedActionButton
+              direction="right"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
                 topCardRef.current?.swipeRight();
               }}
-            >
-              <Feather name="heart" size={26} color="#22C55E" />
-            </Pressable>
+            />
           </View>
         </>
       )}
@@ -620,20 +662,17 @@ const styles = StyleSheet.create({
   tipContainer: { flex: 1, alignItems: "center" },
   tipText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   actionBtn: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  skipBtn: { borderColor: "#EF4444", backgroundColor: "#EF444415" },
-  saveBtn: { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
   emptyIcon: {
     width: 90,
     height: 90,

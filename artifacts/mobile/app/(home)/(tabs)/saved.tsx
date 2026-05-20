@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -82,12 +83,14 @@ export default function SavedScreen() {
               tintColor={colors.primary}
             />
           }
-          renderItem={({ item }) => (
-            <JobCard
-              job={item}
-              onPress={() => router.push(`/(home)/job/${item.id}`)}
-              onUnsave={() => unsave({ jobId: item.id })}
-            />
+          renderItem={({ item, index }) => (
+            <Animated.View entering={FadeInDown.delay(index * 55).springify().damping(16)}>
+              <JobCard
+                job={item}
+                onPress={() => router.push(`/(home)/job/${item.id}`)}
+                onUnsave={() => unsave({ jobId: item.id })}
+              />
+            </Animated.View>
           )}
         />
       )}
