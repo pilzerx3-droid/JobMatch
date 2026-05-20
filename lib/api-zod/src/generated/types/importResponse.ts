@@ -8,5 +8,6 @@
 
 export interface ImportResponse {
   imported: number;
+  skipped?: number;
   message: string;
 }

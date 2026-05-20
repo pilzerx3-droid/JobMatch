@@ -24,6 +24,7 @@ export const GetMyProfileResponse = zod.object({
   "clerkId": zod.string(),
   "name": zod.string().nullish(),
   "email": zod.string(),
+  "role": zod.enum(['job_seeker', 'employer', 'admin']),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive']).nullish(),
   "preferredLocation": zod.string().nullish(),
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).nullish(),
@@ -41,6 +42,7 @@ export const GetMyProfileResponse = zod.object({
  */
 export const UpdateMyProfileBody = zod.object({
   "name": zod.string().optional(),
+  "role": zod.enum(['job_seeker', 'employer']).optional(),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive']).optional(),
   "preferredLocation": zod.string().optional(),
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).optional(),
@@ -54,6 +56,7 @@ export const UpdateMyProfileResponse = zod.object({
   "clerkId": zod.string(),
   "name": zod.string().nullish(),
   "email": zod.string(),
+  "role": zod.enum(['job_seeker', 'employer', 'admin']),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive']).nullish(),
   "preferredLocation": zod.string().nullish(),
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).nullish(),
@@ -83,6 +86,7 @@ export const CompleteOnboardingResponse = zod.object({
   "clerkId": zod.string(),
   "name": zod.string().nullish(),
   "email": zod.string(),
+  "role": zod.enum(['job_seeker', 'employer', 'admin']),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive']).nullish(),
   "preferredLocation": zod.string().nullish(),
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).nullish(),
@@ -92,6 +96,19 @@ export const CompleteOnboardingResponse = zod.object({
   "onboardingCompleted": zod.boolean(),
   "isAdmin": zod.boolean(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Register a push notification token
+ */
+export const RegisterPushTokenBody = zod.object({
+  "token": zod.string(),
+  "platform": zod.enum(['expo', 'apns', 'fcm']).optional()
+})
+
+export const RegisterPushTokenResponse = zod.object({
+  "success": zod.boolean()
 })
 
 
@@ -134,7 +151,10 @@ export const GetJobsResponse = zod.object({
   "source": zod.string(),
   "matchScore": zod.number().nullish().describe('Match percentage 0-100 based on user preferences'),
   "isSaved": zod.boolean(),
-  "createdAt": zod.string()
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
 })),
   "total": zod.number(),
   "hasMore": zod.boolean()
@@ -171,7 +191,10 @@ export const GetJobResponse = zod.object({
   "source": zod.string(),
   "matchScore": zod.number().nullish().describe('Match percentage 0-100 based on user preferences'),
   "isSaved": zod.boolean(),
-  "createdAt": zod.string()
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
 })
 
 
@@ -189,6 +212,22 @@ export const SwipeJobBody = zod.object({
 export const SwipeJobResponse = zod.object({
   "success": zod.boolean(),
   "saved": zod.boolean()
+})
+
+
+/**
+ * @summary Track an apply click on a job (auth optional)
+ */
+export const TrackJobClickParams = zod.object({
+  "jobId": zod.coerce.number()
+})
+
+export const TrackJobClickBody = zod.object({
+  "source": zod.enum(['apply_button', 'card_tap']).optional()
+})
+
+export const TrackJobClickResponse = zod.object({
+  "success": zod.boolean()
 })
 
 
@@ -219,7 +258,10 @@ export const GetSavedJobsResponse = zod.object({
   "source": zod.string(),
   "matchScore": zod.number().nullish().describe('Match percentage 0-100 based on user preferences'),
   "isSaved": zod.boolean(),
-  "createdAt": zod.string()
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
 }))
 })
 
@@ -237,6 +279,114 @@ export const UnsaveJobResponse = zod.object({
 
 
 /**
+ * @summary Get employer profile
+ */
+export const GetEmployerProfileResponse = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "companyName": zod.string(),
+  "companyWebsite": zod.string().nullish(),
+  "companyLogoUrl": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Create employer profile (employer onboarding)
+ */
+export const CreateEmployerProfileBody = zod.object({
+  "companyName": zod.string(),
+  "companyWebsite": zod.string().optional(),
+  "companyLogoUrl": zod.string().optional(),
+  "description": zod.string().optional()
+})
+
+
+/**
+ * @summary Update employer profile
+ */
+export const UpdateEmployerProfileBody = zod.object({
+  "companyName": zod.string().optional(),
+  "companyWebsite": zod.string().optional(),
+  "companyLogoUrl": zod.string().optional(),
+  "description": zod.string().optional()
+})
+
+export const UpdateEmployerProfileResponse = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "companyName": zod.string(),
+  "companyWebsite": zod.string().nullish(),
+  "companyLogoUrl": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "isVerified": zod.boolean(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Get all jobs posted by this employer
+ */
+export const GetEmployerJobsResponse = zod.object({
+  "jobs": zod.array(zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "location": zod.string().nullish(),
+  "remoteType": zod.string(),
+  "jobType": zod.string(),
+  "experienceLevel": zod.string(),
+  "isActive": zod.boolean(),
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "saveCount": zod.number(),
+  "clickCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Create a new job posting (requires Stripe payment)
+ */
+export const CreateEmployerJobBody = zod.object({
+  "title": zod.string(),
+  "companyId": zod.number().optional(),
+  "companyName": zod.string().optional(),
+  "location": zod.string().optional(),
+  "remoteType": zod.enum(['remote', 'hybrid', 'onsite']),
+  "salaryMin": zod.number().optional(),
+  "salaryMax": zod.number().optional(),
+  "jobType": zod.enum(['fulltime', 'parttime', 'contract', 'internship']),
+  "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive', 'any']),
+  "tags": zod.array(zod.string()).optional(),
+  "shortDescription": zod.string(),
+  "fullDescription": zod.string(),
+  "applyUrl": zod.string()
+})
+
+
+/**
+ * @summary Get analytics for a specific job posting
+ */
+export const GetEmployerJobAnalyticsParams = zod.object({
+  "jobId": zod.coerce.number()
+})
+
+export const GetEmployerJobAnalyticsResponse = zod.object({
+  "jobId": zod.number(),
+  "title": zod.string(),
+  "views": zod.number(),
+  "saves": zod.number(),
+  "clicks": zod.number(),
+  "clickThroughRate": zod.number()
+})
+
+
+/**
  * @summary Admin - list all users
  */
 export const AdminGetUsersResponse = zod.object({
@@ -245,6 +395,7 @@ export const AdminGetUsersResponse = zod.object({
   "clerkId": zod.string(),
   "name": zod.string().nullish(),
   "email": zod.string(),
+  "role": zod.enum(['job_seeker', 'employer', 'admin']),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive']).nullish(),
   "preferredLocation": zod.string().nullish(),
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).nullish(),
@@ -294,7 +445,10 @@ export const AdminGetJobsResponse = zod.object({
   "source": zod.string(),
   "matchScore": zod.number().nullish().describe('Match percentage 0-100 based on user preferences'),
   "isSaved": zod.boolean(),
-  "createdAt": zod.string()
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
 })),
   "total": zod.number(),
   "hasMore": zod.boolean()
@@ -366,7 +520,10 @@ export const AdminUpdateJobResponse = zod.object({
   "source": zod.string(),
   "matchScore": zod.number().nullish().describe('Match percentage 0-100 based on user preferences'),
   "isSaved": zod.boolean(),
-  "createdAt": zod.string()
+  "isPaidListing": zod.boolean(),
+  "viewCount": zod.number(),
+  "createdAt": zod.string(),
+  "expiresAt": zod.string().nullish()
 })
 
 
@@ -390,8 +547,12 @@ export const AdminGetAnalyticsResponse = zod.object({
   "totalJobs": zod.number(),
   "totalSwipes": zod.number(),
   "totalSaved": zod.number(),
+  "totalClicks": zod.number(),
+  "totalEmployers": zod.number(),
   "swipesLast7Days": zod.number(),
-  "newUsersLast7Days": zod.number()
+  "newUsersLast7Days": zod.number(),
+  "clicksLast7Days": zod.number(),
+  "jobsImportedLast7Days": zod.number()
 })
 
 
@@ -400,7 +561,61 @@ export const AdminGetAnalyticsResponse = zod.object({
  */
 export const AdminImportJobsResponse = zod.object({
   "imported": zod.number(),
+  "skipped": zod.number().optional(),
   "message": zod.string()
+})
+
+
+/**
+ * @summary Admin - list company career URLs for ATS import
+ */
+export const AdminGetCareerUrlsResponse = zod.object({
+  "careerUrls": zod.array(zod.object({
+  "id": zod.number(),
+  "companyName": zod.string(),
+  "careerUrl": zod.string(),
+  "atsType": zod.enum(['greenhouse', 'lever', 'workable', 'generic']),
+  "lastImportedAt": zod.string().nullish(),
+  "lastImportCount": zod.string().nullish(),
+  "createdAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Admin - add a company career URL
+ */
+export const AdminAddCareerUrlBody = zod.object({
+  "companyName": zod.string(),
+  "careerUrl": zod.string(),
+  "atsType": zod.enum(['greenhouse', 'lever', 'workable', 'generic'])
+})
+
+
+/**
+ * @summary Admin - import jobs from a specific ATS career URL
+ */
+export const AdminImportFromAtsParams = zod.object({
+  "urlId": zod.coerce.number()
+})
+
+export const AdminImportFromAtsResponse = zod.object({
+  "imported": zod.number(),
+  "skipped": zod.number().optional(),
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Admin - remove a career URL
+ */
+export const AdminDeleteCareerUrlParams = zod.object({
+  "urlId": zod.coerce.number()
+})
+
+export const AdminDeleteCareerUrlResponse = zod.object({
+  "success": zod.boolean()
 })
 
 

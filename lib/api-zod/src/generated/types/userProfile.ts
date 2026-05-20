@@ -7,12 +7,14 @@
  */
 import type { UserProfileExperienceLevel } from './userProfileExperienceLevel';
 import type { UserProfileRemotePreference } from './userProfileRemotePreference';
+import type { UserProfileRole } from './userProfileRole';
 
 export interface UserProfile {
   id: number;
   clerkId: string;
   name?: string | null;
   email: string;
+  role: UserProfileRole;
   experienceLevel?: UserProfileExperienceLevel;
   preferredLocation?: string | null;
   remotePreference?: UserProfileRemotePreference;

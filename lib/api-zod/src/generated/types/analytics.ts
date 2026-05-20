@@ -11,6 +11,10 @@ export interface Analytics {
   totalJobs: number;
   totalSwipes: number;
   totalSaved: number;
+  totalClicks: number;
+  totalEmployers: number;
   swipesLast7Days: number;
   newUsersLast7Days: number;
+  clicksLast7Days: number;
+  jobsImportedLast7Days: number;
 }

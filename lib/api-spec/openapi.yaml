@@ -16,6 +16,8 @@ tags:
     description: Job discovery operations
   - name: savedJobs
     description: Saved jobs operations
+  - name: employer
+    description: Employer operations
   - name: admin
     description: Admin operations
 
@@ -87,6 +89,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+
+  /users/me/push-token:
+    post:
+      operationId: registerPushToken
+      tags: [users]
+      summary: Register a push notification token
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushTokenRequest"
+      responses:
+        "200":
+          description: Token registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
 
   /jobs:
     get:
@@ -179,6 +201,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/SwipeResponse"
 
+  /jobs/{jobId}/click:
+    post:
+      operationId: trackJobClick
+      tags: [jobs]
+      summary: Track an apply click on a job (auth optional)
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClickRequest"
+      responses:
+        "200":
+          description: Click tracked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
   /saved-jobs:
     get:
       operationId: getSavedJobs
@@ -214,6 +260,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
+
+  /employer/me:
+    get:
+      operationId: getEmployerProfile
+      tags: [employer]
+      summary: Get employer profile
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Employer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerProfile"
+        "404":
+          description: No employer profile found
+    post:
+      operationId: createEmployerProfile
+      tags: [employer]
+      summary: Create employer profile (employer onboarding)
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEmployerProfileRequest"
+      responses:
+        "201":
+          description: Created employer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerProfile"
+    patch:
+      operationId: updateEmployerProfile
+      tags: [employer]
+      summary: Update employer profile
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEmployerProfileRequest"
+      responses:
+        "200":
+          description: Updated employer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerProfile"
+
+  /employer/jobs:
+    get:
+      operationId: getEmployerJobs
+      tags: [employer]
+      summary: Get all jobs posted by this employer
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Employer job listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerJobsResponse"
+    post:
+      operationId: createEmployerJob
+      tags: [employer]
+      summary: Create a new job posting (requires Stripe payment)
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobRequest"
+      responses:
+        "201":
+          description: Job created (pending payment)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployerJobCreatedResponse"
+
+  /employer/jobs/{jobId}/analytics:
+    get:
+      operationId: getEmployerJobAnalytics
+      tags: [employer]
+      summary: Get analytics for a specific job posting
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAnalytics"
 
   /admin/users:
     get:
@@ -349,6 +502,81 @@ paths:
               schema:
                 $ref: "#/components/schemas/ImportResponse"
 
+  /admin/ats/career-urls:
+    get:
+      operationId: adminGetCareerUrls
+      tags: [admin]
+      summary: Admin - list company career URLs for ATS import
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: Career URLs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerUrlsResponse"
+    post:
+      operationId: adminAddCareerUrl
+      tags: [admin]
+      summary: Admin - add a company career URL
+      security:
+        - clerkAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCareerUrlRequest"
+      responses:
+        "201":
+          description: Career URL added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CareerUrl"
+
+  /admin/ats/import/{urlId}:
+    post:
+      operationId: adminImportFromAts
+      tags: [admin]
+      summary: Admin - import jobs from a specific ATS career URL
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: urlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResponse"
+
+  /admin/ats/career-urls/{urlId}:
+    delete:
+      operationId: adminDeleteCareerUrl
+      tags: [admin]
+      summary: Admin - remove a career URL
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: urlId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   securitySchemes:
     clerkAuth:
@@ -376,6 +604,9 @@ components:
           nullable: true
         email:
           type: string
+        role:
+          type: string
+          enum: [job_seeker, employer, admin]
         experienceLevel:
           type: string
           enum: [junior, mid, senior, lead, executive]
@@ -407,6 +638,7 @@ components:
         - id
         - clerkId
         - email
+        - role
         - onboardingCompleted
         - isAdmin
         - jobCategories
@@ -417,6 +649,9 @@ components:
       properties:
         name:
           type: string
+        role:
+          type: string
+          enum: [job_seeker, employer]
         experienceLevel:
           type: string
           enum: [junior, mid, senior, lead, executive]
@@ -457,6 +692,17 @@ components:
         - experienceLevel
         - remotePreference
         - jobCategories
+
+    PushTokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+        platform:
+          type: string
+          enum: [expo, apns, fcm]
+      required:
+        - token
 
     Company:
       type: object
@@ -523,8 +769,15 @@ components:
           description: Match percentage 0-100 based on user preferences
         isSaved:
           type: boolean
+        isPaidListing:
+          type: boolean
+        viewCount:
+          type: integer
         createdAt:
           type: string
+        expiresAt:
+          type: string
+          nullable: true
       required:
         - id
         - title
@@ -538,6 +791,8 @@ components:
         - applyUrl
         - source
         - isSaved
+        - isPaidListing
+        - viewCount
         - createdAt
 
     SwipeRequest:
@@ -559,6 +814,13 @@ components:
       required:
         - success
         - saved
+
+    ClickRequest:
+      type: object
+      properties:
+        source:
+          type: string
+          enum: [apply_button, card_tap]
 
     JobsResponse:
       type: object
@@ -593,6 +855,155 @@ components:
           type: boolean
       required:
         - success
+
+    EmployerProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        companyName:
+          type: string
+        companyWebsite:
+          type: string
+          nullable: true
+        companyLogoUrl:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        isVerified:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - clerkId
+        - companyName
+        - isVerified
+        - createdAt
+
+    CreateEmployerProfileRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        companyWebsite:
+          type: string
+        companyLogoUrl:
+          type: string
+        description:
+          type: string
+      required:
+        - companyName
+
+    UpdateEmployerProfileRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        companyWebsite:
+          type: string
+        companyLogoUrl:
+          type: string
+        description:
+          type: string
+
+    EmployerJobsResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/EmployerJobListing"
+        total:
+          type: integer
+      required:
+        - jobs
+        - total
+
+    EmployerJobListing:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        location:
+          type: string
+          nullable: true
+        remoteType:
+          type: string
+        jobType:
+          type: string
+        experienceLevel:
+          type: string
+        isActive:
+          type: boolean
+        isPaidListing:
+          type: boolean
+        viewCount:
+          type: integer
+        saveCount:
+          type: integer
+        clickCount:
+          type: integer
+        createdAt:
+          type: string
+        expiresAt:
+          type: string
+          nullable: true
+      required:
+        - id
+        - title
+        - remoteType
+        - jobType
+        - experienceLevel
+        - isActive
+        - isPaidListing
+        - viewCount
+        - saveCount
+        - clickCount
+        - createdAt
+
+    EmployerJobCreatedResponse:
+      type: object
+      properties:
+        jobId:
+          type: integer
+        checkoutUrl:
+          type: string
+          nullable: true
+        message:
+          type: string
+      required:
+        - jobId
+        - message
+
+    JobAnalytics:
+      type: object
+      properties:
+        jobId:
+          type: integer
+        title:
+          type: string
+        views:
+          type: integer
+        saves:
+          type: integer
+        clicks:
+          type: integer
+        clickThroughRate:
+          type: number
+      required:
+        - jobId
+        - title
+        - views
+        - saves
+        - clicks
+        - clickThroughRate
 
     AdminUsersResponse:
       type: object
@@ -694,25 +1105,94 @@ components:
           type: integer
         totalSaved:
           type: integer
+        totalClicks:
+          type: integer
+        totalEmployers:
+          type: integer
         swipesLast7Days:
           type: integer
         newUsersLast7Days:
+          type: integer
+        clicksLast7Days:
+          type: integer
+        jobsImportedLast7Days:
           type: integer
       required:
         - totalUsers
         - totalJobs
         - totalSwipes
         - totalSaved
+        - totalClicks
+        - totalEmployers
         - swipesLast7Days
         - newUsersLast7Days
+        - clicksLast7Days
+        - jobsImportedLast7Days
 
     ImportResponse:
       type: object
       properties:
         imported:
           type: integer
+        skipped:
+          type: integer
         message:
           type: string
       required:
         - imported
         - message
+
+    CareerUrl:
+      type: object
+      properties:
+        id:
+          type: integer
+        companyName:
+          type: string
+        careerUrl:
+          type: string
+        atsType:
+          type: string
+          enum: [greenhouse, lever, workable, generic]
+        lastImportedAt:
+          type: string
+          nullable: true
+        lastImportCount:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+      required:
+        - id
+        - companyName
+        - careerUrl
+        - atsType
+        - createdAt
+
+    CareerUrlsResponse:
+      type: object
+      properties:
+        careerUrls:
+          type: array
+          items:
+            $ref: "#/components/schemas/CareerUrl"
+        total:
+          type: integer
+      required:
+        - careerUrls
+        - total
+
+    AddCareerUrlRequest:
+      type: object
+      properties:
+        companyName:
+          type: string
+        careerUrl:
+          type: string
+        atsType:
+          type: string
+          enum: [greenhouse, lever, workable, generic]
+      required:
+        - companyName
+        - careerUrl
+        - atsType

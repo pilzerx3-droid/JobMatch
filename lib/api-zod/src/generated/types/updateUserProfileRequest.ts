@@ -7,9 +7,11 @@
  */
 import type { UpdateUserProfileRequestExperienceLevel } from './updateUserProfileRequestExperienceLevel';
 import type { UpdateUserProfileRequestRemotePreference } from './updateUserProfileRequestRemotePreference';
+import type { UpdateUserProfileRequestRole } from './updateUserProfileRequestRole';
 
 export interface UpdateUserProfileRequest {
   name?: string;
+  role?: UpdateUserProfileRequestRole;
   experienceLevel?: UpdateUserProfileRequestExperienceLevel;
   preferredLocation?: string;
   remotePreference?: UpdateUserProfileRequestRemotePreference;

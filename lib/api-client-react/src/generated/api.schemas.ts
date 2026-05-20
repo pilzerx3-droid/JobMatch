@@ -9,6 +9,15 @@ export interface HealthStatus {
   status: string;
 }
 
+export type UserProfileRole = typeof UserProfileRole[keyof typeof UserProfileRole];
+
+
+export const UserProfileRole = {
+  job_seeker: 'job_seeker',
+  employer: 'employer',
+  admin: 'admin',
+} as const;
+
 export type UserProfileExperienceLevel = typeof UserProfileExperienceLevel[keyof typeof UserProfileExperienceLevel] | null;
 
 
@@ -35,6 +44,7 @@ export interface UserProfile {
   clerkId: string;
   name?: string | null;
   email: string;
+  role: UserProfileRole;
   experienceLevel?: UserProfileExperienceLevel;
   preferredLocation?: string | null;
   remotePreference?: UserProfileRemotePreference;
@@ -45,6 +55,14 @@ export interface UserProfile {
   isAdmin: boolean;
   createdAt: string;
 }
+
+export type UpdateUserProfileRequestRole = typeof UpdateUserProfileRequestRole[keyof typeof UpdateUserProfileRequestRole];
+
+
+export const UpdateUserProfileRequestRole = {
+  job_seeker: 'job_seeker',
+  employer: 'employer',
+} as const;
 
 export type UpdateUserProfileRequestExperienceLevel = typeof UpdateUserProfileRequestExperienceLevel[keyof typeof UpdateUserProfileRequestExperienceLevel];
 
@@ -69,6 +87,7 @@ export const UpdateUserProfileRequestRemotePreference = {
 
 export interface UpdateUserProfileRequest {
   name?: string;
+  role?: UpdateUserProfileRequestRole;
   experienceLevel?: UpdateUserProfileRequestExperienceLevel;
   preferredLocation?: string;
   remotePreference?: UpdateUserProfileRequestRemotePreference;
@@ -105,6 +124,20 @@ export interface OnboardingRequest {
   salaryMin?: number;
   salaryMax?: number;
   jobCategories: string[];
+}
+
+export type PushTokenRequestPlatform = typeof PushTokenRequestPlatform[keyof typeof PushTokenRequestPlatform];
+
+
+export const PushTokenRequestPlatform = {
+  expo: 'expo',
+  apns: 'apns',
+  fcm: 'fcm',
+} as const;
+
+export interface PushTokenRequest {
+  token: string;
+  platform?: PushTokenRequestPlatform;
 }
 
 export interface Company {
@@ -164,7 +197,10 @@ export interface Job {
   /** Match percentage 0-100 based on user preferences */
   matchScore?: number | null;
   isSaved: boolean;
+  isPaidListing: boolean;
+  viewCount: number;
   createdAt: string;
+  expiresAt?: string | null;
 }
 
 export type SwipeRequestDirection = typeof SwipeRequestDirection[keyof typeof SwipeRequestDirection];
@@ -184,6 +220,18 @@ export interface SwipeResponse {
   saved: boolean;
 }
 
+export type ClickRequestSource = typeof ClickRequestSource[keyof typeof ClickRequestSource];
+
+
+export const ClickRequestSource = {
+  apply_button: 'apply_button',
+  card_tap: 'card_tap',
+} as const;
+
+export interface ClickRequest {
+  source?: ClickRequestSource;
+}
+
 export interface JobsResponse {
   jobs: Job[];
   total: number;
@@ -196,6 +244,67 @@ export interface SavedJobsResponse {
 
 export interface SuccessResponse {
   success: boolean;
+}
+
+export interface EmployerProfile {
+  id: number;
+  clerkId: string;
+  companyName: string;
+  companyWebsite?: string | null;
+  companyLogoUrl?: string | null;
+  description?: string | null;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export interface CreateEmployerProfileRequest {
+  companyName: string;
+  companyWebsite?: string;
+  companyLogoUrl?: string;
+  description?: string;
+}
+
+export interface UpdateEmployerProfileRequest {
+  companyName?: string;
+  companyWebsite?: string;
+  companyLogoUrl?: string;
+  description?: string;
+}
+
+export interface EmployerJobListing {
+  id: number;
+  title: string;
+  location?: string | null;
+  remoteType: string;
+  jobType: string;
+  experienceLevel: string;
+  isActive: boolean;
+  isPaidListing: boolean;
+  viewCount: number;
+  saveCount: number;
+  clickCount: number;
+  createdAt: string;
+  expiresAt?: string | null;
+}
+
+export interface EmployerJobsResponse {
+  jobs: EmployerJobListing[];
+  total: number;
+}
+
+export interface EmployerJobCreatedResponse {
+  jobId: number;
+  checkoutUrl?: string | null;
+  message: string;
+}
+
+export interface JobAnalytics {
+  jobId: number;
+  title: string;
+  views: number;
+  saves: number;
+  clicks: number;
+  clickThroughRate: number;
 }
 
 export interface AdminUsersResponse {
@@ -301,13 +410,59 @@ export interface Analytics {
   totalJobs: number;
   totalSwipes: number;
   totalSaved: number;
+  totalClicks: number;
+  totalEmployers: number;
   swipesLast7Days: number;
   newUsersLast7Days: number;
+  clicksLast7Days: number;
+  jobsImportedLast7Days: number;
 }
 
 export interface ImportResponse {
   imported: number;
+  skipped?: number;
   message: string;
+}
+
+export type CareerUrlAtsType = typeof CareerUrlAtsType[keyof typeof CareerUrlAtsType];
+
+
+export const CareerUrlAtsType = {
+  greenhouse: 'greenhouse',
+  lever: 'lever',
+  workable: 'workable',
+  generic: 'generic',
+} as const;
+
+export interface CareerUrl {
+  id: number;
+  companyName: string;
+  careerUrl: string;
+  atsType: CareerUrlAtsType;
+  lastImportedAt?: string | null;
+  lastImportCount?: string | null;
+  createdAt: string;
+}
+
+export interface CareerUrlsResponse {
+  careerUrls: CareerUrl[];
+  total: number;
+}
+
+export type AddCareerUrlRequestAtsType = typeof AddCareerUrlRequestAtsType[keyof typeof AddCareerUrlRequestAtsType];
+
+
+export const AddCareerUrlRequestAtsType = {
+  greenhouse: 'greenhouse',
+  lever: 'lever',
+  workable: 'workable',
+  generic: 'generic',
+} as const;
+
+export interface AddCareerUrlRequest {
+  companyName: string;
+  careerUrl: string;
+  atsType: AddCareerUrlRequestAtsType;
 }
 
 export type GetJobsParams = {

@@ -7,6 +7,7 @@ export const userProfilesTable = pgTable("user_profiles", {
   clerkId: text("clerk_id").notNull().unique(),
   name: text("name"),
   email: text("email").notNull(),
+  role: text("role").notNull().default("job_seeker"), // job_seeker | employer | admin
   experienceLevel: text("experience_level"),
   preferredLocation: text("preferred_location"),
   remotePreference: text("remote_preference"),

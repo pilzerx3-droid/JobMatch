@@ -2,6 +2,7 @@ import {
   useGetJob,
   useSwipeJob,
   useUnsaveJob,
+  useTrackJobClick,
   getGetJobQueryKey,
   getGetSavedJobsQueryKey,
 } from "@workspace/api-client-react";
@@ -76,7 +77,10 @@ export default function JobDetailScreen() {
   const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
   const initials = job.company.name.substring(0, 2).toUpperCase();
 
+  const { mutate: trackClick } = useTrackJobClick();
+
   const handleApply = () => {
+    trackClick({ jobId: job.id, data: { source: "apply_button" } });
     Linking.openURL(job.applyUrl).catch(() => {});
   };
 

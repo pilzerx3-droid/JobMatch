@@ -250,6 +250,42 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
+        {/* Employer Dashboard */}
+        {profile.role === "employer" && (
+          <View style={styles.section}>
+            <Pressable
+              style={[styles.linkRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push("/(home)/employer-dashboard")}
+            >
+              <View style={[styles.linkIcon, { backgroundColor: colors.primary + "18" }]}>
+                <Feather name="briefcase" size={16} color={colors.primary} />
+              </View>
+              <Text style={[styles.linkText, { color: colors.foreground }]}>Employer Dashboard</Text>
+              <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        )}
+
+        {/* Legal */}
+        <View style={[styles.section, { gap: 10 }]}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Legal</Text>
+          <View style={[styles.legalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Pressable
+              style={[styles.legalRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
+              onPress={() => router.push("/(home)/privacy")}
+            >
+              <Feather name="shield" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.legalText, { color: colors.foreground }]}>Privacy Policy</Text>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </Pressable>
+            <Pressable style={styles.legalRow} onPress={() => router.push("/(home)/terms")}>
+              <Feather name="file-text" size={16} color={colors.mutedForeground} />
+              <Text style={[styles.legalText, { color: colors.foreground }]}>Terms of Service</Text>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <Pressable
             style={[styles.signOutBtn, { borderColor: colors.destructive + "40" }]}
@@ -312,4 +348,17 @@ const styles = StyleSheet.create({
   editPrefText: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
   signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
   signOutText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  linkIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  linkText: { flex: 1, fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
+  legalCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  legalRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  legalText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
 });

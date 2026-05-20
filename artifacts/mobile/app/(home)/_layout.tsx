@@ -24,6 +24,9 @@ export default function HomeLayout() {
         options={{ presentation: "modal", animation: "slide_from_bottom" }}
       />
       <Stack.Screen name="admin" />
+      <Stack.Screen name="employer-dashboard" />
+      <Stack.Screen name="privacy" />
+      <Stack.Screen name="terms" />
     </Stack>
   );
 }

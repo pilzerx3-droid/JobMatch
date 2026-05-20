@@ -28,5 +28,8 @@ export interface Job {
   /** Match percentage 0-100 based on user preferences */
   matchScore?: number | null;
   isSaved: boolean;
+  isPaidListing: boolean;
+  viewCount: number;
   createdAt: string;
+  expiresAt?: string | null;
 }

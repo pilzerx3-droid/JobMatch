@@ -1,0 +1,175 @@
+You are continuing development of SwipeJobs.
+This is NOT a refactor. This is a feature expansion sprint.
+
+Goal:
+Transform SwipeJobs from MVP into a monetizable, growth-ready job platform.
+
+Do NOT rewrite existing features.
+Extend the existing architecture cleanly.
+
+========================================
+PART 1 — EMPLOYER ACCOUNTS
+========================================
+
+Add employer account capability alongside normal users.
+
+Database additions:
+Create table employerProfiles:
+- id
+- clerkUserId (unique)
+- companyName
+- companyWebsite
+- companyLogoUrl
+- description
+- isVerified (boolean)
+- createdAt
+
+Users can choose account type during signup:
+- Job Seeker (default)
+- Employer
+
+Add role field to users table:
+- role: "job_seeker" | "employer" | "admin"
+
+Employer onboarding flow:
+Step 1: company name
+Step 2: website
+Step 3: logo upload
+Step 4: company description
+
+Create Employer Dashboard route: /employer
+
+Employer dashboard features:
+- View company profile
+- View posted jobs
+- Create new job post
+- See job analytics (views, saves, apply clicks)
+
+========================================
+PART 2 — PAID JOB POSTINGS (STRIPE)
+========================================
+
+Integrate Stripe payments.
+
+Pricing model:
+Single job post = $49 for 30 days
+
+Create Stripe checkout flow:
+- Employer clicks "Post a Job"
+- Fill job form
+- Payment required before publishing
+- After successful payment → job becomes active
+
+Database changes:
+Add fields to jobs table:
+- postedByEmployerId
+- stripePaymentId
+- expiresAt
+- isPaidListing (boolean)
+
+Create backend webhook:
+Stripe webhook listens for successful payment and activates job post.
+
+Auto-expire paid jobs after 30 days via daily cron.
+
+========================================
+PART 3 — APPLY CLICK TRACKING
+========================================
+
+Track when users click "Apply".
+
+Create table jobClicks:
+- id
+- jobId
+- userId (nullable for guests)
+- timestamp
+
+Increment click count per job.
+
+Show metrics in employer dashboard:
+- Views (card impressions)
+- Saves
+- Apply clicks
+
+========================================
+PART 4 — PUSH NOTIFICATIONS
+========================================
+
+Integrate Expo Push Notifications.
+
+Ask permission after onboarding.
+
+Send notifications when:
+- New jobs match user preferences
+- Saved job is about to expire (3 days before)
+- Weekly "Top Jobs for You" digest
+
+Create notification service + cron job.
+
+========================================
+PART 5 — EMAIL DIGEST SYSTEM
+========================================
+
+Integrate Resend or SendGrid.
+
+Weekly email to users:
+Subject: "Your weekly job matches"
+
+Include:
+- Top 10 matching jobs
+- Link back to app
+
+Cron runs weekly.
+
+========================================
+PART 6 — ADVANCED JOB IMPORT SOURCES
+========================================
+
+Extend job import system.
+
+Add importers for ATS job boards:
+- Greenhouse
+- Lever
+- Workable
+
+Build generic importer:
+Given company careers URL → detect ATS → fetch jobs.
+
+Store source = "greenhouse" | "lever" | "workable".
+
+Create admin UI to add company career URLs.
+
+========================================
+PART 7 — BASIC ANALYTICS
+========================================
+
+Create admin analytics page.
+
+Metrics:
+- Daily active users
+- Swipes per day
+- Saves per day
+- Applications per day
+- Jobs imported per day
+- Revenue from Stripe
+
+========================================
+PART 8 — APP STORE READINESS
+========================================
+
+Prepare production configs:
+- App icons
+- Splash screen
+- Privacy policy placeholder page
+- Terms of service placeholder page
+
+========================================
+FINAL GOAL
+========================================
+
+After implementing:
+Provide:
+- DB migration steps
+- Environment variables required
+- Stripe setup instructions
+- Expo notification setup steps

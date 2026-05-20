@@ -20,6 +20,11 @@ export const jobsTable = pgTable("jobs", {
   applyUrl: text("apply_url").notNull(),
   source: text("source").notNull().default("manual"),
   isActive: boolean("is_active").notNull().default(true),
+  // Employer posting fields
+  postedByEmployerId: integer("posted_by_employer_id"),
+  isPaidListing: boolean("is_paid_listing").notNull().default(false),
+  stripePaymentId: text("stripe_payment_id"),
+  viewCount: integer("view_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
 });

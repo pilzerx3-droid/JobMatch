@@ -5,6 +5,7 @@ import {
   companiesTable,
   swipeActionsTable,
   userProfilesTable,
+  jobClicksTable,
 } from "@workspace/db";
 import { eq, and, notInArray, desc, count, ilike, or, sql } from "drizzle-orm";
 import { optionalAuth, requireAuth, type AuthRequest } from "../middlewares/requireAuth";
@@ -72,9 +73,12 @@ function serializeJob(
     fullDescription: job.fullDescription,
     applyUrl: job.applyUrl,
     source: job.source,
+    isPaidListing: job.isPaidListing,
+    viewCount: job.viewCount,
     matchScore,
     isSaved,
     createdAt: job.createdAt?.toISOString(),
+    expiresAt: job.expiresAt?.toISOString() ?? null,
   };
 }
 
@@ -206,6 +210,29 @@ router.get("/:jobId", optionalAuth, async (req, res, next) => {
         isSaved
       )
     );
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/:jobId/click", optionalAuth, async (req, res, next) => {
+  try {
+    const userProfile = (req as AuthRequest).userProfile ?? null;
+    const jobId = Number(req.params.jobId);
+    const { source: clickSource = "apply_button" } = req.body ?? {};
+
+    await db.insert(jobClicksTable).values({
+      jobId,
+      userId: userProfile?.id ?? null,
+      source: clickSource,
+    });
+
+    await db
+      .update(jobsTable)
+      .set({ viewCount: sql`${jobsTable.viewCount} + 1` })
+      .where(eq(jobsTable.id, jobId));
+
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

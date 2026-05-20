@@ -5,13 +5,16 @@ import {
   companiesTable,
   userProfilesTable,
   swipeActionsTable,
+  jobClicksTable,
+  employerProfilesTable,
+  companyCareerUrlsTable,
 } from "@workspace/db";
-import { eq, desc, count, gte } from "drizzle-orm";
+import { eq, desc, count, gte, and } from "drizzle-orm";
 import { requireAuth, requireAdmin, type AuthRequest } from "../middlewares/requireAuth";
 import { syncFromRemotive } from "../services/syncJobs";
+import { importFromCareerUrl } from "../services/atsImporter";
 
 const router = Router();
-
 router.use(requireAuth);
 router.use(requireAdmin);
 
@@ -27,6 +30,7 @@ router.get("/users", async (_req, res, next) => {
         clerkId: u.clerkId,
         name: u.name,
         email: u.email,
+        role: u.role,
         experienceLevel: u.experienceLevel,
         preferredLocation: u.preferredLocation,
         remotePreference: u.remotePreference,
@@ -61,7 +65,6 @@ router.get("/jobs", async (req, res, next) => {
     ]);
 
     const total = Number(totalRows[0]?.count ?? 0);
-
     res.json({
       jobs: jobs.map(({ job, company }) => ({
         id: job.id,
@@ -80,9 +83,12 @@ router.get("/jobs", async (req, res, next) => {
         fullDescription: job.fullDescription,
         applyUrl: job.applyUrl,
         source: job.source,
+        isPaidListing: job.isPaidListing,
+        viewCount: job.viewCount,
         matchScore: null,
         isSaved: false,
         createdAt: job.createdAt?.toISOString(),
+        expiresAt: job.expiresAt?.toISOString() ?? null,
       })),
       total,
       hasMore: offset + jobs.length < total,
@@ -95,19 +101,9 @@ router.get("/jobs", async (req, res, next) => {
 router.post("/jobs", async (req, res, next) => {
   try {
     const {
-      title,
-      companyId,
-      companyName,
-      location,
-      remoteType,
-      salaryMin,
-      salaryMax,
-      jobType,
-      experienceLevel,
-      tags,
-      shortDescription,
-      fullDescription,
-      applyUrl,
+      title, companyId, companyName, location, remoteType,
+      salaryMin, salaryMax, jobType, experienceLevel, tags,
+      shortDescription, fullDescription, applyUrl,
     } = req.body;
 
     let resolvedCompanyId = companyId;
@@ -122,18 +118,13 @@ router.post("/jobs", async (req, res, next) => {
     const [job] = await db
       .insert(jobsTable)
       .values({
-        title,
-        companyId: resolvedCompanyId,
-        location,
+        title, companyId: resolvedCompanyId, location,
         remoteType: remoteType ?? "onsite",
-        salaryMin,
-        salaryMax,
+        salaryMin, salaryMax,
         jobType: jobType ?? "fulltime",
         experienceLevel: experienceLevel ?? "any",
         tags: tags ?? [],
-        shortDescription,
-        fullDescription,
-        applyUrl,
+        shortDescription, fullDescription, applyUrl,
         source: "admin",
       })
       .returning();
@@ -181,16 +172,25 @@ router.get("/analytics", async (_req, res, next) => {
       [totalJobsRow],
       [totalSwipesRow],
       [totalSavedRow],
+      [totalClicksRow],
+      [totalEmployersRow],
       [swipesLast7Row],
       [newUsersLast7Row],
+      [clicksLast7Row],
+      [jobsImportedLast7Row],
     ] = await Promise.all([
       db.select({ count: count() }).from(userProfilesTable),
-      db.select({ count: count() }).from(jobsTable),
+      db.select({ count: count() }).from(jobsTable).where(eq(jobsTable.isActive, true)),
       db.select({ count: count() }).from(swipeActionsTable),
       db
         .select({ count: count() })
         .from(swipeActionsTable)
         .where(eq(swipeActionsTable.direction, "right")),
+      db.select({ count: count() }).from(jobClicksTable),
+      db
+        .select({ count: count() })
+        .from(userProfilesTable)
+        .where(eq(userProfilesTable.role, "employer")),
       db
         .select({ count: count() })
         .from(swipeActionsTable)
@@ -199,6 +199,14 @@ router.get("/analytics", async (_req, res, next) => {
         .select({ count: count() })
         .from(userProfilesTable)
         .where(gte(userProfilesTable.createdAt, sevenDaysAgo)),
+      db
+        .select({ count: count() })
+        .from(jobClicksTable)
+        .where(gte(jobClicksTable.createdAt, sevenDaysAgo)),
+      db
+        .select({ count: count() })
+        .from(jobsTable)
+        .where(gte(jobsTable.createdAt, sevenDaysAgo)),
     ]);
 
     res.json({
@@ -206,8 +214,12 @@ router.get("/analytics", async (_req, res, next) => {
       totalJobs: Number(totalJobsRow?.count ?? 0),
       totalSwipes: Number(totalSwipesRow?.count ?? 0),
       totalSaved: Number(totalSavedRow?.count ?? 0),
+      totalClicks: Number(totalClicksRow?.count ?? 0),
+      totalEmployers: Number(totalEmployersRow?.count ?? 0),
       swipesLast7Days: Number(swipesLast7Row?.count ?? 0),
       newUsersLast7Days: Number(newUsersLast7Row?.count ?? 0),
+      clicksLast7Days: Number(clicksLast7Row?.count ?? 0),
+      jobsImportedLast7Days: Number(jobsImportedLast7Row?.count ?? 0),
     });
   } catch (err) {
     next(err);
@@ -218,6 +230,76 @@ router.post("/jobs/import", async (_req, res, next) => {
   try {
     const result = await syncFromRemotive(150, true);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── ATS Career URLs ──────────────────────────────────────────────────────────
+router.get("/ats/career-urls", async (_req, res, next) => {
+  try {
+    const rows = await db
+      .select()
+      .from(companyCareerUrlsTable)
+      .orderBy(desc(companyCareerUrlsTable.createdAt));
+    res.json({
+      careerUrls: rows.map((r) => ({
+        id: r.id,
+        companyName: r.companyName,
+        careerUrl: r.careerUrl,
+        atsType: r.atsType,
+        lastImportedAt: r.lastImportedAt?.toISOString() ?? null,
+        lastImportCount: r.lastImportCount,
+        createdAt: r.createdAt.toISOString(),
+      })),
+      total: rows.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/ats/career-urls", async (req, res, next) => {
+  try {
+    const { companyName, careerUrl, atsType } = req.body;
+    if (!companyName || !careerUrl || !atsType) {
+      res.status(400).json({ error: "companyName, careerUrl, atsType are required" });
+      return;
+    }
+    const [row] = await db
+      .insert(companyCareerUrlsTable)
+      .values({ companyName, careerUrl, atsType })
+      .returning();
+    res.status(201).json({
+      id: row.id,
+      companyName: row.companyName,
+      careerUrl: row.careerUrl,
+      atsType: row.atsType,
+      lastImportedAt: null,
+      lastImportCount: null,
+      createdAt: row.createdAt.toISOString(),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/ats/import/:urlId", async (req, res, next) => {
+  try {
+    const urlId = Number(req.params.urlId);
+    const result = await importFromCareerUrl(urlId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/ats/career-urls/:urlId", async (req, res, next) => {
+  try {
+    await db
+      .delete(companyCareerUrlsTable)
+      .where(eq(companyCareerUrlsTable.id, Number(req.params.urlId)));
+    res.json({ success: true });
   } catch (err) {
     next(err);
   }

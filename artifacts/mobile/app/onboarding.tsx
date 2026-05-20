@@ -1,6 +1,8 @@
-import { useCompleteOnboarding } from "@workspace/api-client-react";
+import { useCompleteOnboarding, useRegisterPushToken } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
