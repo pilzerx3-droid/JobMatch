@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { EasyApplySheet } from "@/components/EasyApplySheet";
 import { useColors } from "@/hooks/useColors";
 
 const REMOTE_COLORS: Record<string, string> = {
@@ -46,6 +47,7 @@ export default function JobDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [easyApplied, setEasyApplied] = useState(false);
+  const [showEasyApplySheet, setShowEasyApplySheet] = useState(false);
 
   const jobId = Number(id);
   const { data: job, isLoading } = useGetJob(jobId, {
@@ -75,10 +77,12 @@ export default function JobDetailScreen() {
     mutation: {
       onSuccess: () => {
         setEasyApplied(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setShowEasyApplySheet(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         Linking.openURL(job!.applyUrl).catch(() => {});
       },
       onError: () => {
+        setShowEasyApplySheet(false);
         Alert.alert("Error", "Could not save your application. Opening apply link anyway.");
         Linking.openURL(job!.applyUrl).catch(() => {});
       },
@@ -102,11 +106,15 @@ export default function JobDetailScreen() {
     Linking.openURL(job.applyUrl).catch(() => {});
   };
 
-  const handleEasyApply = () => {
+  const handleOpenEasyApply = () => {
     if (easyApplied) {
       Linking.openURL(job.applyUrl).catch(() => {});
       return;
     }
+    setShowEasyApplySheet(true);
+  };
+
+  const handleConfirmEasyApply = () => {
     trackClick({ jobId: job.id, data: { source: "apply_button" } });
     createApplication({ data: { jobId: job.id } });
   };
@@ -257,7 +265,7 @@ export default function JobDetailScreen() {
             backgroundColor: easyApplied ? "#22C55E" : colors.card,
             borderColor: easyApplied ? "#22C55E" : colors.primary,
           }]}
-          onPress={handleEasyApply}
+          onPress={handleOpenEasyApply}
           disabled={isApplying}
         >
           {isApplying ? (
@@ -280,6 +288,14 @@ export default function JobDetailScreen() {
           <Feather name="arrow-right" size={16} color="#FFFFFF" />
         </Pressable>
       </View>
+      <EasyApplySheet
+        visible={showEasyApplySheet}
+        jobTitle={job.title}
+        companyName={job.company.name}
+        onConfirm={handleConfirmEasyApply}
+        onDismiss={() => setShowEasyApplySheet(false)}
+        isLoading={isApplying}
+      />
     </SafeAreaView>
   );
 }
