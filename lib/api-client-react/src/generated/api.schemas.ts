@@ -39,6 +39,10 @@ export const UserProfileRemotePreference = {
   any: 'any',
 } as const;
 
+export type UserProfileEducationItem = { [key: string]: unknown };
+
+export type UserProfileWorkExperienceItem = { [key: string]: unknown };
+
 export interface UserProfile {
   id: number;
   clerkId: string;
@@ -54,6 +58,18 @@ export interface UserProfile {
   onboardingCompleted: boolean;
   isAdmin: boolean;
   createdAt: string;
+  headline?: string | null;
+  bio?: string | null;
+  yearsExperience?: number | null;
+  skills: string[];
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
+  portfolioUrl?: string | null;
+  resumeUrl?: string | null;
+  education: UserProfileEducationItem[];
+  workExperience: UserProfileWorkExperienceItem[];
+  /** Profile completeness percentage 0-100 */
+  profileCompleteness?: number;
 }
 
 export type UpdateUserProfileRequestRole = typeof UpdateUserProfileRequestRole[keyof typeof UpdateUserProfileRequestRole];
@@ -85,6 +101,10 @@ export const UpdateUserProfileRequestRemotePreference = {
   any: 'any',
 } as const;
 
+export type UpdateUserProfileRequestEducationItem = { [key: string]: unknown };
+
+export type UpdateUserProfileRequestWorkExperienceItem = { [key: string]: unknown };
+
 export interface UpdateUserProfileRequest {
   name?: string;
   role?: UpdateUserProfileRequestRole;
@@ -94,6 +114,16 @@ export interface UpdateUserProfileRequest {
   salaryMin?: number;
   salaryMax?: number;
   jobCategories?: string[];
+  headline?: string;
+  bio?: string;
+  yearsExperience?: number;
+  skills?: string[];
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  resumeUrl?: string;
+  education?: UpdateUserProfileRequestEducationItem[];
+  workExperience?: UpdateUserProfileRequestWorkExperienceItem[];
 }
 
 export type OnboardingRequestExperienceLevel = typeof OnboardingRequestExperienceLevel[keyof typeof OnboardingRequestExperienceLevel];
@@ -463,6 +493,69 @@ export interface AddCareerUrlRequest {
   companyName: string;
   careerUrl: string;
   atsType: AddCareerUrlRequestAtsType;
+}
+
+export type ApplicationStatus = typeof ApplicationStatus[keyof typeof ApplicationStatus];
+
+
+export const ApplicationStatus = {
+  draft: 'draft',
+  submitted: 'submitted',
+} as const;
+
+export interface Application {
+  id: number;
+  clerkId: string;
+  jobId: number;
+  status: ApplicationStatus;
+  coverLetter?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateApplicationRequest {
+  jobId: number;
+  coverLetter?: string;
+  notes?: string;
+}
+
+export interface ApplicationsResponse {
+  applications: Application[];
+  total: number;
+}
+
+export interface AnthropicConversation {
+  id: number;
+  title: string;
+  createdAt: string;
+}
+
+export interface AnthropicMessage {
+  id: number;
+  conversationId: number;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface AnthropicConversationInput {
+  title: string;
+}
+
+export interface AnthropicMessageInput {
+  content: string;
+}
+
+export interface AnthropicConversationWithMessages {
+  id: number;
+  title: string;
+  createdAt: string;
+  messages: AnthropicMessage[];
+}
+
+export interface AnthropicError {
+  error: string;
 }
 
 export type GetJobsParams = {

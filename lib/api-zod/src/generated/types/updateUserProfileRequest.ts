@@ -5,9 +5,11 @@
  * SwipeJobs API - Tinder/TikTok for Jobs
  * OpenAPI spec version: 0.1.0
  */
+import type { UpdateUserProfileRequestEducationItem } from './updateUserProfileRequestEducationItem';
 import type { UpdateUserProfileRequestExperienceLevel } from './updateUserProfileRequestExperienceLevel';
 import type { UpdateUserProfileRequestRemotePreference } from './updateUserProfileRequestRemotePreference';
 import type { UpdateUserProfileRequestRole } from './updateUserProfileRequestRole';
+import type { UpdateUserProfileRequestWorkExperienceItem } from './updateUserProfileRequestWorkExperienceItem';
 
 export interface UpdateUserProfileRequest {
   name?: string;
@@ -18,4 +20,14 @@ export interface UpdateUserProfileRequest {
   salaryMin?: number;
   salaryMax?: number;
   jobCategories?: string[];
+  headline?: string;
+  bio?: string;
+  yearsExperience?: number;
+  skills?: string[];
+  linkedinUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  resumeUrl?: string;
+  education?: UpdateUserProfileRequestEducationItem[];
+  workExperience?: UpdateUserProfileRequestWorkExperienceItem[];
 }

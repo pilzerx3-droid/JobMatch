@@ -82,6 +82,15 @@ export default function ProfileScreen() {
     );
   }
 
+  const extProfile = profile as typeof profile & {
+    swipesLeft?: number;
+    swipesRight?: number;
+    applicationsClicked?: number;
+    headline?: string;
+    profileCompleteness?: number;
+    skills?: string[];
+  };
+
   const initials = (profile.name || profile.email)
     .split(" ")
     .map((w) => w[0])
@@ -90,31 +99,35 @@ export default function ProfileScreen() {
     .substring(0, 2);
 
   const savedCount = savedData?.savedJobs.length ?? 0;
-  // Stats injected by the extended GET /me response
-  const profileAny = profile as typeof profile & {
-    swipesLeft?: number;
-    swipesRight?: number;
-    applicationsClicked?: number;
-  };
-  const swipesLeft = profileAny.swipesLeft ?? 0;
-  const swipesRight = profileAny.swipesRight ?? savedCount;
-  const applicationsClicked = profileAny.applicationsClicked ?? 0;
+  const swipesLeft = extProfile.swipesLeft ?? 0;
+  const swipesRight = extProfile.swipesRight ?? savedCount;
+  const applicationsClicked = extProfile.applicationsClicked ?? 0;
   const totalReviewed = swipesLeft + swipesRight;
+  const completeness = extProfile.profileCompleteness ?? 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>Profile</Text>
-          {profile.isAdmin && (
+          <View style={styles.headerRight}>
+            {profile.isAdmin && (
+              <Pressable
+                style={[styles.adminBadge, { backgroundColor: colors.accent + "20" }]}
+                onPress={() => router.push("/(home)/admin")}
+              >
+                <Feather name="shield" size={14} color={colors.accent} />
+                <Text style={[styles.adminText, { color: colors.accent }]}>Admin</Text>
+              </Pressable>
+            )}
             <Pressable
-              style={[styles.adminBadge, { backgroundColor: colors.accent + "20" }]}
-              onPress={() => router.push("/(home)/admin")}
+              style={[styles.editProfileBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+              onPress={() => router.push("/(home)/profile-edit")}
             >
-              <Feather name="shield" size={14} color={colors.accent} />
-              <Text style={[styles.adminText, { color: colors.accent }]}>Admin</Text>
+              <Feather name="edit-2" size={14} color={colors.foreground} />
+              <Text style={[styles.editProfileText, { color: colors.foreground }]}>Edit</Text>
             </Pressable>
-          )}
+          </View>
         </View>
 
         <View style={[styles.avatarSection, { borderBottomColor: colors.border }]}>
@@ -168,7 +181,48 @@ export default function ProfileScreen() {
               </Pressable>
             </View>
           )}
+          {extProfile.headline ? (
+            <Text style={[styles.headline, { color: colors.mutedForeground }]}>{extProfile.headline}</Text>
+          ) : null}
           <Text style={[styles.email, { color: colors.mutedForeground }]}>{profile.email}</Text>
+        </View>
+
+        {/* Profile Completeness */}
+        <View style={[styles.completenessCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.completenessHeader}>
+            <Text style={[styles.completenessTitle, { color: colors.foreground }]}>
+              Profile Strength
+            </Text>
+            <Text style={[styles.completenessPercent, { color: completeness >= 70 ? "#22C55E" : colors.primary }]}>
+              {completeness}%
+            </Text>
+          </View>
+          <View style={[styles.progressTrack, { backgroundColor: colors.secondary }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${completeness}%` as any,
+                  backgroundColor: completeness >= 70 ? "#22C55E" : colors.primary,
+                },
+              ]}
+            />
+          </View>
+          {completeness < 100 && (
+            <Pressable
+              style={styles.completeRow}
+              onPress={() => router.push("/(home)/profile-edit")}
+            >
+              <Text style={[styles.completeHint, { color: colors.mutedForeground }]}>
+                {completeness < 40
+                  ? "Add a headline, bio, and skills to stand out"
+                  : completeness < 70
+                  ? "Add work experience and education to reach 70%"
+                  : "Almost there — add your LinkedIn or portfolio"}
+              </Text>
+              <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
+            </Pressable>
+          )}
         </View>
 
         {/* Activity stats */}
@@ -190,6 +244,20 @@ export default function ProfileScreen() {
             <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Applied</Text>
           </View>
         </View>
+
+        {/* Skills */}
+        {extProfile.skills && extProfile.skills.length > 0 && (
+          <View style={[styles.section, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Skills</Text>
+            <View style={styles.chipRow}>
+              {extProfile.skills.slice(0, 10).map((skill) => (
+                <View key={skill} style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Text style={[styles.chipText, { color: colors.foreground }]}>{skill}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Job Preferences</Text>
@@ -275,7 +343,6 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        {/* Employer Dashboard */}
         {profile.role === "employer" && (
           <View style={styles.section}>
             <Pressable
@@ -293,7 +360,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Legal */}
         <View style={[styles.section, { gap: 10 }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Legal</Text>
           <View
@@ -346,19 +412,30 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.5,
   },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   adminBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 100,
   },
   adminText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  editProfileBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  editProfileText: { fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium" },
   avatarSection: {
     alignItems: "center",
-    paddingVertical: 28,
-    gap: 10,
+    paddingVertical: 24,
+    gap: 8,
     borderBottomWidth: 1,
   },
   avatar: {
@@ -377,6 +454,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   name: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  headline: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", paddingHorizontal: 32 },
   nameInput: {
     flex: 1,
     borderWidth: 1,
@@ -389,7 +467,22 @@ const styles = StyleSheet.create({
   saveBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   saveBtnText: { color: "#FFFFFF", fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   email: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  statsRow: { flexDirection: "row", paddingVertical: 20, borderBottomWidth: 1 },
+  completenessCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  completenessHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  completenessTitle: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  completenessPercent: { fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold" },
+  progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", borderRadius: 3 },
+  completeRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  completeHint: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  statsRow: { flexDirection: "row", paddingVertical: 20, borderBottomWidth: 1, marginTop: 16 },
   stat: { flex: 1, alignItems: "center", gap: 4 },
   statNum: { fontSize: 26, fontWeight: "800", fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
@@ -401,6 +494,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.3,
   },
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1 },
+  chipText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   prefCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   prefRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   prefIcon: {
@@ -420,9 +516,6 @@ const styles = StyleSheet.create({
   },
   categoriesSection: { gap: 8 },
   catLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1 },
-  chipText: { fontSize: 13, fontFamily: "Inter_400Regular" },
   editPrefBtn: {
     flexDirection: "row",
     alignItems: "center",

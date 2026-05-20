@@ -11,6 +11,22 @@ import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 
 const router = Router();
 
+function computeCompleteness(profile: typeof userProfilesTable.$inferSelect): number {
+  let score = 0;
+  if (profile.name?.trim()) score += 5;
+  if (profile.headline?.trim()) score += 15;
+  if (profile.bio?.trim()) score += 10;
+  if (profile.yearsExperience != null) score += 5;
+  if (profile.skills && profile.skills.length > 0) score += 15;
+  if (profile.workExperience && (profile.workExperience as unknown[]).length > 0) score += 15;
+  if (profile.education && (profile.education as unknown[]).length > 0) score += 10;
+  if (profile.linkedinUrl?.trim()) score += 5;
+  if (profile.experienceLevel) score += 5;
+  if (profile.remotePreference) score += 5;
+  if (profile.jobCategories && profile.jobCategories.length > 0) score += 10;
+  return Math.min(score, 100);
+}
+
 function formatProfile(profile: typeof userProfilesTable.$inferSelect) {
   return {
     id: profile.id,
@@ -27,6 +43,17 @@ function formatProfile(profile: typeof userProfilesTable.$inferSelect) {
     onboardingCompleted: profile.onboardingCompleted,
     isAdmin: profile.isAdmin,
     createdAt: profile.createdAt?.toISOString(),
+    headline: profile.headline,
+    bio: profile.bio,
+    yearsExperience: profile.yearsExperience,
+    skills: profile.skills ?? [],
+    linkedinUrl: profile.linkedinUrl,
+    githubUrl: profile.githubUrl,
+    portfolioUrl: profile.portfolioUrl,
+    resumeUrl: profile.resumeUrl,
+    education: profile.education ?? [],
+    workExperience: profile.workExperience ?? [],
+    profileCompleteness: computeCompleteness(profile),
   };
 }
 
@@ -74,8 +101,24 @@ router.patch("/me", requireAuth, async (req, res, next) => {
   try {
     const { userProfile } = req as AuthRequest;
     const {
-      name, role, experienceLevel, preferredLocation,
-      remotePreference, salaryMin, salaryMax, jobCategories,
+      name,
+      role,
+      experienceLevel,
+      preferredLocation,
+      remotePreference,
+      salaryMin,
+      salaryMax,
+      jobCategories,
+      headline,
+      bio,
+      yearsExperience,
+      skills,
+      linkedinUrl,
+      githubUrl,
+      portfolioUrl,
+      resumeUrl,
+      education,
+      workExperience,
     } = req.body;
 
     const [updated] = await db
@@ -89,6 +132,16 @@ router.patch("/me", requireAuth, async (req, res, next) => {
         salaryMin: salaryMin ?? userProfile.salaryMin,
         salaryMax: salaryMax ?? userProfile.salaryMax,
         jobCategories: jobCategories ?? userProfile.jobCategories,
+        headline: headline !== undefined ? headline : userProfile.headline,
+        bio: bio !== undefined ? bio : userProfile.bio,
+        yearsExperience: yearsExperience !== undefined ? yearsExperience : userProfile.yearsExperience,
+        skills: skills !== undefined ? skills : userProfile.skills,
+        linkedinUrl: linkedinUrl !== undefined ? linkedinUrl : userProfile.linkedinUrl,
+        githubUrl: githubUrl !== undefined ? githubUrl : userProfile.githubUrl,
+        portfolioUrl: portfolioUrl !== undefined ? portfolioUrl : userProfile.portfolioUrl,
+        resumeUrl: resumeUrl !== undefined ? resumeUrl : userProfile.resumeUrl,
+        education: education !== undefined ? education : userProfile.education,
+        workExperience: workExperience !== undefined ? workExperience : userProfile.workExperience,
         updatedAt: new Date(),
       })
       .where(eq(userProfilesTable.id, userProfile.id))
@@ -104,8 +157,12 @@ router.post("/me/complete-onboarding", requireAuth, async (req, res, next) => {
   try {
     const { userProfile } = req as AuthRequest;
     const {
-      experienceLevel, preferredLocation, remotePreference,
-      salaryMin, salaryMax, jobCategories,
+      experienceLevel,
+      preferredLocation,
+      remotePreference,
+      salaryMin,
+      salaryMax,
+      jobCategories,
     } = req.body;
 
     const [updated] = await db

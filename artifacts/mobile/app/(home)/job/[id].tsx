@@ -3,14 +3,17 @@ import {
   useSwipeJob,
   useUnsaveJob,
   useTrackJobClick,
+  useCreateApplication,
   getGetJobQueryKey,
   getGetSavedJobsQueryKey,
 } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React from "react";
+import * as Haptics from "expo-haptics";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -42,6 +45,7 @@ export default function JobDetailScreen() {
   const colors = useColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [easyApplied, setEasyApplied] = useState(false);
 
   const jobId = Number(id);
   const { data: job, isLoading } = useGetJob(jobId, {
@@ -67,6 +71,20 @@ export default function JobDetailScreen() {
 
   const { mutate: trackClick } = useTrackJobClick();
 
+  const { mutate: createApplication, isPending: isApplying } = useCreateApplication({
+    mutation: {
+      onSuccess: () => {
+        setEasyApplied(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Linking.openURL(job!.applyUrl).catch(() => {});
+      },
+      onError: () => {
+        Alert.alert("Error", "Could not save your application. Opening apply link anyway.");
+        Linking.openURL(job!.applyUrl).catch(() => {});
+      },
+    },
+  });
+
   if (isLoading || !job) {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
@@ -82,6 +100,15 @@ export default function JobDetailScreen() {
   const handleApply = () => {
     trackClick({ jobId: job.id, data: { source: "apply_button" } });
     Linking.openURL(job.applyUrl).catch(() => {});
+  };
+
+  const handleEasyApply = () => {
+    if (easyApplied) {
+      Linking.openURL(job.applyUrl).catch(() => {});
+      return;
+    }
+    trackClick({ jobId: job.id, data: { source: "apply_button" } });
+    createApplication({ data: { jobId: job.id } });
   };
 
   const handleSave = () => {
@@ -195,48 +222,62 @@ export default function JobDetailScreen() {
           </View>
         )}
 
-        <View style={{ height: 140 }} />
+        <View style={{ height: 160 }} />
       </ScrollView>
 
       <View style={[styles.bottomBar, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
         {job.isSaved ? (
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: colors.primary }]}
+            style={[styles.iconBtn, { borderColor: colors.primary }]}
             onPress={handleUnsave}
             disabled={isUnsaving}
           >
             {isUnsaving ? (
               <ActivityIndicator color={colors.primary} size="small" />
             ) : (
-              <>
-                <Feather name="bookmark" size={18} color={colors.primary} />
-                <Text style={[styles.secondaryBtnText, { color: colors.primary }]}>Saved</Text>
-              </>
+              <Feather name="bookmark" size={20} color={colors.primary} />
             )}
           </Pressable>
         ) : (
           <Pressable
-            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            style={[styles.iconBtn, { borderColor: colors.border }]}
             onPress={handleSave}
             disabled={isSaving}
           >
             {isSaving ? (
               <ActivityIndicator color={colors.mutedForeground} size="small" />
             ) : (
-              <>
-                <Feather name="heart" size={18} color={colors.mutedForeground} />
-                <Text style={[styles.secondaryBtnText, { color: colors.mutedForeground }]}>Save</Text>
-              </>
+              <Feather name="heart" size={20} color={colors.mutedForeground} />
             )}
           </Pressable>
         )}
 
         <Pressable
-          style={[styles.applyBtn, { backgroundColor: colors.primary, flex: 1 }]}
+          style={[styles.easyApplyBtn, {
+            backgroundColor: easyApplied ? "#22C55E" : colors.card,
+            borderColor: easyApplied ? "#22C55E" : colors.primary,
+          }]}
+          onPress={handleEasyApply}
+          disabled={isApplying}
+        >
+          {isApplying ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <>
+              <Text style={[styles.easyApplyText, { color: easyApplied ? "#FFFFFF" : colors.primary }]}>
+                {easyApplied ? "✓ Applied" : "Easy Apply"}
+              </Text>
+              {!easyApplied && <Text style={{ fontSize: 14 }}>⚡</Text>}
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.applyBtn, { backgroundColor: colors.primary }]}
           onPress={handleApply}
         >
-          <Text style={styles.applyBtnText}>Apply Now</Text>
-          <Feather name="arrow-right" size={18} color="#FFFFFF" />
+          <Text style={styles.applyBtnText}>Apply</Text>
+          <Feather name="arrow-right" size={16} color="#FFFFFF" />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -278,17 +319,28 @@ const styles = StyleSheet.create({
   descText: { fontSize: 15, lineHeight: 24, fontFamily: "Inter_400Regular" },
   bottomBar: {
     flexDirection: "row",
-    gap: 12,
-    padding: 16,
+    gap: 8,
+    padding: 12,
     paddingBottom: 24,
     borderTopWidth: 1,
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    alignItems: "center",
   },
-  secondaryBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5 },
-  secondaryBtnText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  applyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 14 },
-  applyBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  iconBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+  easyApplyBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 13,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  easyApplyText: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  applyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 13, paddingHorizontal: 18, borderRadius: 14 },
+  applyBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
 });

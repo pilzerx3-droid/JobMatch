@@ -1,0 +1,197 @@
+Implement the next major evolution of SwipeHire.
+
+This update transforms the app from a swipe job browser into a full career platform similar to LinkedIn + Easy Apply + AI Career Assistant.
+
+Work across backend, database, and mobile app.
+
+⸻
+
+PART 1 — EXPAND JOB SOURCES
+
+Add new job providers and scheduled syncing.
+
+Add Adzuna integration
+
+Create new provider:
+server/src/jobs/providers/adzuna.ts
+
+Use Adzuna API:
+https://api.adzuna.com/v1/api/jobs/{country}/search/{page}
+
+Environment variables:
+ADZUNA_APP_ID
+ADZUNA_APP_KEY
+
+Import jobs with:
+title, company, location, salary_min, salary_max, contract_type, description, redirect_url.
+
+Map contract types:
+permanent → full-time
+contract → contract
+part_time → part-time
+
+Country to fetch:
+US, GB, DE, NL, CA
+
+Fetch 5 pages per country per sync.
+
+⸻
+
+Add JSearch integration
+
+server/src/jobs/providers/jsearch.ts
+
+Use RapidAPI JSearch endpoint.
+Fetch remote + on-site jobs.
+
+Normalize to existing job schema.
+
+⸻
+
+Add Scheduled Sync
+
+Install node-cron.
+
+Create scheduled job:
+Run full sync every 6 hours.
+
+Keep manual admin sync button.
+
+⸻
+
+PART 2 — PROFESSIONAL USER PROFILES (LinkedIn mode)
+
+Upgrade userProfiles table.
+
+Add fields:
+headline TEXT
+bio TEXT
+yearsExperience INTEGER
+skills TEXT[]
+linkedinUrl TEXT
+githubUrl TEXT
+portfolioUrl TEXT
+resumeUrl TEXT
+education JSONB
+workExperience JSONB
+
+Create new screen:
+app/profile/edit.tsx
+
+Sections:
+• Headline
+• About me
+• Skills (tag input)
+• Work experience (add multiple)
+• Education (add multiple)
+• Links (LinkedIn/GitHub/Portfolio)
+• Upload resume (file upload to storage)
+
+Add “Profile completeness score”.
+
+Show % on Profile tab.
+
+⸻
+
+PART 3 — EASY APPLY SYSTEM
+
+Create new table:
+applications
+
+fields:
+id
+userId
+jobId
+status (draft, sent)
+createdAt
+
+⸻
+
+Add Easy Apply button on Job Detail
+
+If job has applyUrl:
+Show 2 buttons:
+
+1. Apply on company site (existing)
+2. Easy Apply ⚡
+
+⸻
+
+Easy Apply flow
+
+When user taps Easy Apply:
+
+1. Generate application package:
+
+* Resume (from stored resume)
+* Auto-generated cover letter
+* Profile data
+
+2. Save application record in DB.
+3. Open applyUrl in webview.
+
+⸻
+
+PART 4 — AI CAREER ASSISTANT
+
+Create new tab:
+app/assistant/index.tsx
+
+Chat UI similar to ChatGPT.
+
+Create backend route:
+/api/ai/career-assistant
+
+System prompt:
+You are a professional career coach helping users get hired faster.
+
+Features:
+• Resume improvement suggestions
+• Cover letter generation
+• Interview preparation
+• Career advice
+• Salary negotiation tips
+
+⸻
+
+Resume AI Tools
+
+Add buttons in Profile screen:
+
+• “Improve my resume”
+• “Generate cover letter”
+• “Prepare for interview”
+
+Each calls AI endpoint with profile + job context.
+
+⸻
+
+PART 5 — DESIGN UPGRADE (Premium feel)
+
+Improve UI styling globally:
+
+• Increase border radius
+• Softer shadows
+• Bigger typography scale
+• More spacing between sections
+• Add subtle gradients to cards
+• Improve empty states with illustrations
+• Add haptic feedback on swipe and save
+• Add loading skeletons everywhere
+
+⸻
+
+PART 6 — ANALYTICS
+
+Track events:
+job_viewed
+job_saved
+job_applied
+profile_completed
+assistant_used
+
+Create analytics service.
+
+⸻
+
+After implementation, run migrations and verify the app builds and runs successfully.

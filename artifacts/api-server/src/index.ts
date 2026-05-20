@@ -2,6 +2,7 @@ import { runMigrations } from "stripe-replit-sync";
 import { getStripeSync } from "./stripeClient";
 import app from "./app";
 import { logger } from "./lib/logger";
+import { startScheduler } from "./services/scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -34,7 +35,6 @@ async function initStripe() {
     );
     logger.info("Stripe webhook configured");
 
-    // Non-blocking backfill
     stripeSync
       .syncBackfill()
       .then(() => logger.info("Stripe data synced"))
@@ -53,4 +53,5 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  startScheduler();
 });

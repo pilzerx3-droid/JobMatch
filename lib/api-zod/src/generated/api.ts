@@ -33,7 +33,22 @@ export const GetMyProfileResponse = zod.object({
   "jobCategories": zod.array(zod.string()),
   "onboardingCompleted": zod.boolean(),
   "isAdmin": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "headline": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "yearsExperience": zod.number().nullish(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "githubUrl": zod.string().nullish(),
+  "portfolioUrl": zod.string().nullish(),
+  "resumeUrl": zod.string().nullish(),
+  "education": zod.array(zod.object({
+
+}).passthrough()),
+  "workExperience": zod.array(zod.object({
+
+}).passthrough()),
+  "profileCompleteness": zod.number().optional().describe('Profile completeness percentage 0-100')
 })
 
 
@@ -48,7 +63,21 @@ export const UpdateMyProfileBody = zod.object({
   "remotePreference": zod.enum(['remote', 'hybrid', 'onsite', 'any']).optional(),
   "salaryMin": zod.number().optional(),
   "salaryMax": zod.number().optional(),
-  "jobCategories": zod.array(zod.string()).optional()
+  "jobCategories": zod.array(zod.string()).optional(),
+  "headline": zod.string().optional(),
+  "bio": zod.string().optional(),
+  "yearsExperience": zod.number().optional(),
+  "skills": zod.array(zod.string()).optional(),
+  "linkedinUrl": zod.string().optional(),
+  "githubUrl": zod.string().optional(),
+  "portfolioUrl": zod.string().optional(),
+  "resumeUrl": zod.string().optional(),
+  "education": zod.array(zod.object({
+
+}).passthrough()).optional(),
+  "workExperience": zod.array(zod.object({
+
+}).passthrough()).optional()
 })
 
 export const UpdateMyProfileResponse = zod.object({
@@ -65,7 +94,22 @@ export const UpdateMyProfileResponse = zod.object({
   "jobCategories": zod.array(zod.string()),
   "onboardingCompleted": zod.boolean(),
   "isAdmin": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "headline": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "yearsExperience": zod.number().nullish(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "githubUrl": zod.string().nullish(),
+  "portfolioUrl": zod.string().nullish(),
+  "resumeUrl": zod.string().nullish(),
+  "education": zod.array(zod.object({
+
+}).passthrough()),
+  "workExperience": zod.array(zod.object({
+
+}).passthrough()),
+  "profileCompleteness": zod.number().optional().describe('Profile completeness percentage 0-100')
 })
 
 
@@ -95,7 +139,22 @@ export const CompleteOnboardingResponse = zod.object({
   "jobCategories": zod.array(zod.string()),
   "onboardingCompleted": zod.boolean(),
   "isAdmin": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "headline": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "yearsExperience": zod.number().nullish(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "githubUrl": zod.string().nullish(),
+  "portfolioUrl": zod.string().nullish(),
+  "resumeUrl": zod.string().nullish(),
+  "education": zod.array(zod.object({
+
+}).passthrough()),
+  "workExperience": zod.array(zod.object({
+
+}).passthrough()),
+  "profileCompleteness": zod.number().optional().describe('Profile completeness percentage 0-100')
 })
 
 
@@ -404,7 +463,22 @@ export const AdminGetUsersResponse = zod.object({
   "jobCategories": zod.array(zod.string()),
   "onboardingCompleted": zod.boolean(),
   "isAdmin": zod.boolean(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "headline": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "yearsExperience": zod.number().nullish(),
+  "skills": zod.array(zod.string()),
+  "linkedinUrl": zod.string().nullish(),
+  "githubUrl": zod.string().nullish(),
+  "portfolioUrl": zod.string().nullish(),
+  "resumeUrl": zod.string().nullish(),
+  "education": zod.array(zod.object({
+
+}).passthrough()),
+  "workExperience": zod.array(zod.object({
+
+}).passthrough()),
+  "profileCompleteness": zod.number().optional().describe('Profile completeness percentage 0-100')
 })),
   "total": zod.number()
 })
@@ -616,6 +690,119 @@ export const AdminDeleteCareerUrlParams = zod.object({
 
 export const AdminDeleteCareerUrlResponse = zod.object({
   "success": zod.boolean()
+})
+
+
+/**
+ * @summary List current user's job applications
+ */
+export const ListApplicationsResponse = zod.object({
+  "applications": zod.array(zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "jobId": zod.number(),
+  "status": zod.enum(['draft', 'submitted']),
+  "coverLetter": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})),
+  "total": zod.number()
+})
+
+
+/**
+ * @summary Create a job application record
+ */
+export const CreateApplicationBody = zod.object({
+  "jobId": zod.number(),
+  "coverLetter": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete an application
+ */
+export const DeleteApplicationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all career assistant conversations
+ */
+export const ListAnthropicConversationsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAnthropicConversationsResponse = zod.array(ListAnthropicConversationsResponseItem)
+
+
+/**
+ * @summary Create a new conversation
+ */
+export const CreateAnthropicConversationBody = zod.object({
+  "title": zod.string()
+})
+
+
+/**
+ * @summary Get conversation with messages
+ */
+export const GetAnthropicConversationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAnthropicConversationResponse = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "messages": zod.array(zod.object({
+  "id": zod.number(),
+  "conversationId": zod.number(),
+  "role": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Delete a conversation
+ */
+export const DeleteAnthropicConversationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List messages in a conversation
+ */
+export const ListAnthropicMessagesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListAnthropicMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "conversationId": zod.number(),
+  "role": zod.string(),
+  "content": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListAnthropicMessagesResponse = zod.array(ListAnthropicMessagesResponseItem)
+
+
+/**
+ * @summary Send a message and receive an AI response (SSE stream)
+ */
+export const SendAnthropicMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SendAnthropicMessageBody = zod.object({
+  "content": zod.string()
 })
 
 

@@ -362,16 +362,37 @@ export async function syncFromRemotive(
     return { imported: 0, skipped: 0, message: "Skipped — synced recently" };
   }
 
-  const [r1, r2] = await Promise.all([syncRemotive(), syncRemoteOK()]);
+  // Dynamically import optional providers (gated on env vars at runtime)
+  const { syncAdzuna } = await import("../jobs/providers/adzuna");
+  const { syncJSearch } = await import("../jobs/providers/jsearch");
 
-  const imported = r1.imported + r2.imported;
-  const skipped = r1.skipped + r2.skipped;
+  const [r1, r2, r3, r4] = await Promise.all([
+    syncRemotive(),
+    syncRemoteOK(),
+    process.env.ADZUNA_APP_ID && process.env.ADZUNA_APP_KEY
+      ? syncAdzuna()
+      : Promise.resolve({ imported: 0, skipped: 0 }),
+    process.env.RAPIDAPI_KEY
+      ? syncJSearch()
+      : Promise.resolve({ imported: 0, skipped: 0 }),
+  ]);
+
+  const imported = r1.imported + r2.imported + r3.imported + r4.imported;
+  const skipped = r1.skipped + r2.skipped + r3.skipped + r4.skipped;
 
   lastSyncAt = Date.now();
+
+  const parts = [
+    `Remotive: ${r1.imported}`,
+    `RemoteOK: ${r2.imported}`,
+    r3.imported > 0 ? `Adzuna: ${r3.imported}` : null,
+    r4.imported > 0 ? `JSearch: ${r4.imported}` : null,
+  ].filter(Boolean);
+
   return {
     imported,
     skipped,
-    message: `Imported ${imported} new jobs (Remotive: ${r1.imported}, RemoteOK: ${r2.imported}, skipped: ${skipped})`,
+    message: `Imported ${imported} new jobs (${parts.join(", ")}, skipped: ${skipped})`,
   };
 }
 
