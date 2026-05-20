@@ -20,8 +20,8 @@ interface AdzunaResponse {
   results: AdzunaJob[];
 }
 
-const COUNTRIES = ["us", "gb", "de", "nl", "ca"];
-const PAGES_PER_COUNTRY = 5;
+const COUNTRIES = ["us", "gb", "ca", "au", "nl", "de", "fr", "it", "es", "in", "br", "za", "nz", "sg", "at"];
+const PAGES_PER_COUNTRY = 10;
 const RESULTS_PER_PAGE = 50;
 
 function mapContractType(ct?: string): string {
@@ -91,7 +91,7 @@ async function fetchAdzunaPage(
   url.searchParams.set("app_key", appKey);
   url.searchParams.set("results_per_page", String(RESULTS_PER_PAGE));
   url.searchParams.set("content-type", "application/json");
-  url.searchParams.set("what_or", "developer engineer designer product manager data analyst marketing");
+  url.searchParams.set("what_or", "developer engineer designer product manager data analyst marketing sales finance operations recruiter nurse teacher accountant");
 
   const res = await fetch(url.toString(), {
     headers: { "User-Agent": "SwipeJobs/1.0" },
