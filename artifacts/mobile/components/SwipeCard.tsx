@@ -1,5 +1,6 @@
 import type { Job } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
@@ -17,6 +18,13 @@ import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const LOGO_SIZE = 56;
+
+// Stable module-level function for runOnJS compatibility
+function triggerHapticMedium() {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+}
 
 export interface SwipeCardHandle {
   swipeLeft: () => void;
@@ -112,8 +120,13 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
     onSwipeLeftRef.current = onSwipeLeft;
     onSwipeRightRef.current = onSwipeRight;
 
+    const isNew = job.createdAt
+      ? Date.now() - new Date(job.createdAt).getTime() < SEVEN_DAYS_MS
+      : false;
+
     useImperativeHandle(ref, () => ({
       swipeLeft: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         translateX.value = withTiming(
           -(SCREEN_WIDTH + 150),
           { duration: 300 },
@@ -127,6 +140,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         );
       },
       swipeRight: () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
         translateX.value = withTiming(
           SCREEN_WIDTH + 150,
           { duration: 300 },
@@ -150,6 +164,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
       })
       .onEnd((e) => {
         if (e.translationX > SWIPE_THRESHOLD) {
+          runOnJS(triggerHapticMedium)();
           translateX.value = withTiming(
             SCREEN_WIDTH + 150,
             { duration: 280 },
@@ -162,6 +177,7 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
             }
           );
         } else if (e.translationX < -SWIPE_THRESHOLD) {
+          runOnJS(triggerHapticMedium)();
           translateX.value = withTiming(
             -(SCREEN_WIDTH + 150),
             { duration: 280 },
@@ -242,32 +258,37 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
         >
           {isTop && (
             <>
-              <Animated.View
-                style={[styles.overlay, styles.saveOverlay, saveOverlayStyle]}
-              >
+              <Animated.View style={[styles.overlay, styles.saveOverlay, saveOverlayStyle]}>
                 <Text style={[styles.overlayText, { color: "#22C55E" }]}>SAVE ♥</Text>
               </Animated.View>
-              <Animated.View
-                style={[styles.overlay, styles.skipOverlay, skipOverlayStyle]}
-              >
+              <Animated.View style={[styles.overlay, styles.skipOverlay, skipOverlayStyle]}>
                 <Text style={[styles.overlayText, { color: "#EF4444" }]}>SKIP ✕</Text>
               </Animated.View>
             </>
           )}
 
-          <Pressable
-            style={styles.pressable}
-            onPress={isTop ? onPress : undefined}
-          >
+          <Pressable style={styles.pressable} onPress={isTop ? onPress : undefined}>
             <View style={styles.topRow}>
-              <View style={styles.logoWrapper}>
-                <CompanyLogo
-                  logoUrl={job.company.logoUrl}
-                  name={job.company.name}
-                  bgColor={colors.secondary}
-                  fgColor={colors.primary}
-                />
+              {/* Company logo with glow ring */}
+              <View
+                style={[
+                  styles.logoGlowOuter,
+                  {
+                    borderColor: colors.primary + "50",
+                    shadowColor: colors.primary,
+                  },
+                ]}
+              >
+                <View style={[styles.logoWrapper, { backgroundColor: colors.secondary }]}>
+                  <CompanyLogo
+                    logoUrl={job.company.logoUrl}
+                    name={job.company.name}
+                    bgColor={colors.secondary}
+                    fgColor={colors.primary}
+                  />
+                </View>
               </View>
+
               <View style={styles.topRight}>
                 {job.matchScore != null && (
                   <View style={[styles.pill, { backgroundColor: "#22C55E20" }]}>
@@ -276,16 +297,18 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
                     </Text>
                   </View>
                 )}
+                {isNew && (
+                  <View style={[styles.pill, { backgroundColor: "#F59E0B22" }]}>
+                    <Text style={[styles.pillText, { color: "#F59E0B" }]}>✦ NEW</Text>
+                  </View>
+                )}
                 <View style={[styles.pill, { backgroundColor: jtColor + "22" }]}>
                   <Text style={[styles.pillText, { color: jtColor }]}>{jtLabel}</Text>
                 </View>
               </View>
             </View>
 
-            <Text
-              style={[styles.jobTitle, { color: colors.foreground }]}
-              numberOfLines={2}
-            >
+            <Text style={[styles.jobTitle, { color: colors.foreground }]} numberOfLines={2}>
               {job.title}
             </Text>
             <Text style={[styles.companyName, { color: colors.mutedForeground }]}>
@@ -317,60 +340,54 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
             </View>
 
             {salary ? (
-              <View style={styles.salaryRow}>
-                <Feather name="dollar-sign" size={15} color={colors.foreground} />
+              <View
+                style={[
+                  styles.salaryHighlight,
+                  { backgroundColor: colors.secondary, borderColor: colors.border },
+                ]}
+              >
+                <Feather name="dollar-sign" size={14} color={colors.primary} />
                 <Text style={[styles.salary, { color: colors.foreground }]}>
-                  {salary} / yr
+                  {salary}
+                  <Text style={[styles.salaryPeriod, { color: colors.mutedForeground }]}>
+                    {" "}
+                    / yr
+                  </Text>
                 </Text>
               </View>
             ) : null}
 
             <Text
               style={[styles.description, { color: colors.mutedForeground }]}
-              numberOfLines={4}
+              numberOfLines={3}
             >
               {job.shortDescription}
             </Text>
 
             {job.tags.length > 0 && (
               <View style={styles.tags}>
-                {job.tags.slice(0, 6).map((tag) => (
+                {job.tags.slice(0, 5).map((tag) => (
                   <View
                     key={tag}
                     style={[
                       styles.tag,
-                      {
-                        backgroundColor: colors.secondary,
-                        borderColor: colors.border,
-                      },
+                      { backgroundColor: colors.secondary, borderColor: colors.border },
                     ]}
                   >
-                    <Text style={[styles.tagText, { color: colors.mutedForeground }]}>
-                      {tag}
-                    </Text>
+                    <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{tag}</Text>
                   </View>
                 ))}
               </View>
             )}
 
             <View style={[styles.swipeHint, { borderTopColor: colors.border }]}>
-              <View
-                style={[
-                  styles.hintBtn,
-                  { borderColor: "#EF4444", backgroundColor: "#EF444415" },
-                ]}
-              >
+              <View style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}>
                 <Feather name="x" size={20} color="#EF4444" />
               </View>
               <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
                 {isTop ? "swipe or tap buttons" : ""}
               </Text>
-              <View
-                style={[
-                  styles.hintBtn,
-                  { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
-                ]}
-              >
+              <View style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}>
                 <Feather name="heart" size={20} color="#22C55E" />
               </View>
             </View>
@@ -383,8 +400,6 @@ export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
 
 SwipeCard.displayName = "SwipeCard";
 
-const LOGO_SIZE = 56;
-
 const styles = StyleSheet.create({
   card: {
     position: "absolute",
@@ -393,10 +408,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 10,
   },
   overlay: {
     position: "absolute",
@@ -417,11 +432,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 2,
   },
+  logoGlowOuter: {
+    width: LOGO_SIZE + 8,
+    height: LOGO_SIZE + 8,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+  },
   logoWrapper: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     borderRadius: 14,
     overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoImage: { width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: 14 },
   logoFallback: {
@@ -446,8 +475,18 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "center" },
   metaItem: { flexDirection: "row", gap: 4, alignItems: "center", flexShrink: 1 },
   metaText: { fontSize: 12, fontFamily: "Inter_400Regular", flexShrink: 1 },
-  salaryRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  salaryHighlight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
   salary: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  salaryPeriod: { fontSize: 13, fontWeight: "400", fontFamily: "Inter_400Regular" },
   description: { fontSize: 13, lineHeight: 19, fontFamily: "Inter_400Regular" },
   tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },

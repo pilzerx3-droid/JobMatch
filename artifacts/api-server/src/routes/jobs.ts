@@ -17,31 +17,80 @@ type UserProfile = typeof userProfilesTable.$inferSelect;
 type JobRow = typeof jobsTable.$inferSelect;
 type CompanyRow = typeof companiesTable.$inferSelect;
 
+const LEVEL_ORDER = ["junior", "mid", "senior", "lead", "executive"];
+
+function adjacentLevel(jobLevel: string, userLevel: string): boolean {
+  const ji = LEVEL_ORDER.indexOf(jobLevel);
+  const ui = LEVEL_ORDER.indexOf(userLevel);
+  return ji >= 0 && ui >= 0 && Math.abs(ji - ui) === 1;
+}
+
 function calculateMatchScore(job: JobRow, user: UserProfile): number {
   let score = 0;
 
+  // Experience level match (0–30 pts)
   if (user.experienceLevel) {
-    if (job.experienceLevel === user.experienceLevel || job.experienceLevel === "any") score += 34;
+    if (job.experienceLevel === user.experienceLevel || job.experienceLevel === "any") {
+      score += 30;
+    } else if (adjacentLevel(job.experienceLevel, user.experienceLevel)) {
+      score += 15;
+    }
   } else {
-    score += 17;
+    score += 15;
   }
 
+  // Remote preference match (0–25 pts)
   if (user.remotePreference) {
-    if (user.remotePreference === "any" || job.remoteType === user.remotePreference) score += 33;
+    if (user.remotePreference === "any" || job.remoteType === user.remotePreference) {
+      score += 25;
+    }
   } else {
-    score += 17;
+    score += 12;
   }
 
+  // Location match (0–20 pts)
   if (!user.preferredLocation || job.remoteType === "remote") {
-    score += 33;
+    score += 20;
   } else if (
     job.location &&
     job.location.toLowerCase().includes(user.preferredLocation.toLowerCase())
   ) {
-    score += 33;
+    score += 20;
   }
 
-  return Math.min(100, score);
+  // Salary match (0–15 pts)
+  if (user.salaryMin && job.salaryMax) {
+    if (job.salaryMax >= user.salaryMin) {
+      score += 15;
+    } else if (job.salaryMax >= user.salaryMin * 0.8) {
+      score += 7;
+    }
+  } else if (user.salaryMin && job.salaryMin) {
+    if (job.salaryMin >= user.salaryMin * 0.9) {
+      score += 12;
+    }
+  } else {
+    score += 7;
+  }
+
+  // Category / tag match (0–10 pts)
+  if (user.jobCategories && user.jobCategories.length > 0 && job.tags.length > 0) {
+    const userCats = new Set(user.jobCategories.map((c) => c.toLowerCase()));
+    const tagMatch = job.tags.some((t) => userCats.has(t.toLowerCase()));
+    const titleMatch = job.tags.some(
+      (t) =>
+        job.title.toLowerCase().includes(t.toLowerCase()) ||
+        (user.jobCategories ?? []).some((c) =>
+          job.title.toLowerCase().includes(c.toLowerCase())
+        )
+    );
+    if (tagMatch || titleMatch) score += 10;
+    else score += 3;
+  } else {
+    score += 5;
+  }
+
+  return Math.min(100, Math.round(score));
 }
 
 function serializeJob(
@@ -152,14 +201,20 @@ router.get("/", optionalAuth, async (req, res, next) => {
 
     const total = Number(totalRows[0]?.count ?? 0);
 
+    const jobsWithScores = jobs.map(({ job, company }) => ({
+      job,
+      company,
+      score: userProfile ? calculateMatchScore(job, userProfile) : null,
+    }));
+
+    // Sort by match score descending for authenticated users
+    if (userProfile) {
+      jobsWithScores.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+    }
+
     res.json({
-      jobs: jobs.map(({ job, company }) =>
-        serializeJob(
-          job,
-          company,
-          userProfile ? calculateMatchScore(job, userProfile) : null,
-          false
-        )
+      jobs: jobsWithScores.map(({ job, company, score }) =>
+        serializeJob(job, company, score, false)
       ),
       total,
       hasMore: offset + jobs.length < total,

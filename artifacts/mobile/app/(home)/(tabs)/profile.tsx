@@ -90,6 +90,16 @@ export default function ProfileScreen() {
     .substring(0, 2);
 
   const savedCount = savedData?.savedJobs.length ?? 0;
+  // Stats injected by the extended GET /me response
+  const profileAny = profile as typeof profile & {
+    swipesLeft?: number;
+    swipesRight?: number;
+    applicationsClicked?: number;
+  };
+  const swipesLeft = profileAny.swipesLeft ?? 0;
+  const swipesRight = profileAny.swipesRight ?? savedCount;
+  const applicationsClicked = profileAny.applicationsClicked ?? 0;
+  const totalReviewed = swipesLeft + swipesRight;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -114,7 +124,14 @@ export default function ProfileScreen() {
           {editMode ? (
             <View style={styles.editNameRow}>
               <TextInput
-                style={[styles.nameInput, { backgroundColor: colors.input, borderColor: colors.border, color: colors.foreground }]}
+                style={[
+                  styles.nameInput,
+                  {
+                    backgroundColor: colors.input,
+                    borderColor: colors.border,
+                    color: colors.foreground,
+                  },
+                ]}
                 value={editName}
                 onChangeText={setEditName}
                 placeholder="Your name"
@@ -154,6 +171,7 @@ export default function ProfileScreen() {
           <Text style={[styles.email, { color: colors.mutedForeground }]}>{profile.email}</Text>
         </View>
 
+        {/* Activity stats */}
         <View style={[styles.statsRow, { borderBottomColor: colors.border }]}>
           <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.foreground }]}>{savedCount}</Text>
@@ -161,17 +179,20 @@ export default function ProfileScreen() {
           </View>
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <View style={styles.stat}>
+            <Text style={[styles.statNum, { color: colors.foreground }]}>{totalReviewed}</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Reviewed</Text>
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.stat}>
             <Text style={[styles.statNum, { color: colors.foreground }]}>
-              {profile.onboardingCompleted ? "✓" : "—"}
+              {applicationsClicked}
             </Text>
-            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Onboarded</Text>
+            <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Applied</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Job Preferences
-          </Text>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Job Preferences</Text>
 
           <View style={[styles.prefCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             {[
@@ -206,7 +227,10 @@ export default function ProfileScreen() {
                 key={item.label}
                 style={[
                   styles.prefRow,
-                  idx < arr.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
+                  idx < arr.length - 1 && {
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border,
+                  },
                 ]}
               >
                 <View style={[styles.prefIcon, { backgroundColor: colors.secondary }]}>
@@ -226,12 +250,13 @@ export default function ProfileScreen() {
 
           {profile.jobCategories && profile.jobCategories.length > 0 && (
             <View style={styles.categoriesSection}>
-              <Text style={[styles.catLabel, { color: colors.mutedForeground }]}>
-                Interested in
-              </Text>
+              <Text style={[styles.catLabel, { color: colors.mutedForeground }]}>Interested in</Text>
               <View style={styles.chipRow}>
                 {profile.jobCategories.map((cat) => (
-                  <View key={cat} style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <View
+                    key={cat}
+                    style={[styles.chip, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  >
                     <Text style={[styles.chipText, { color: colors.foreground }]}>{cat}</Text>
                   </View>
                 ))}
@@ -260,7 +285,9 @@ export default function ProfileScreen() {
               <View style={[styles.linkIcon, { backgroundColor: colors.primary + "18" }]}>
                 <Feather name="briefcase" size={16} color={colors.primary} />
               </View>
-              <Text style={[styles.linkText, { color: colors.foreground }]}>Employer Dashboard</Text>
+              <Text style={[styles.linkText, { color: colors.foreground }]}>
+                Employer Dashboard
+              </Text>
               <Feather name="chevron-right" size={18} color={colors.mutedForeground} />
             </Pressable>
           </View>
@@ -269,7 +296,9 @@ export default function ProfileScreen() {
         {/* Legal */}
         <View style={[styles.section, { gap: 10 }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Legal</Text>
-          <View style={[styles.legalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[styles.legalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
             <Pressable
               style={[styles.legalRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}
               onPress={() => router.push("/(home)/privacy")}
@@ -292,9 +321,7 @@ export default function ProfileScreen() {
             onPress={handleSignOut}
           >
             <Feather name="log-out" size={18} color={colors.destructive} />
-            <Text style={[styles.signOutText, { color: colors.destructive }]}>
-              Sign Out
-            </Text>
+            <Text style={[styles.signOutText, { color: colors.destructive }]}>Sign Out</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -313,16 +340,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
-  headerTitle: { fontSize: 26, fontWeight: "800", fontFamily: "Inter_700Bold", letterSpacing: -0.5 },
-  adminBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.5,
+  },
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+  },
   adminText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  avatarSection: { alignItems: "center", paddingVertical: 28, gap: 10, borderBottomWidth: 1 },
-  avatar: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
+  avatarSection: {
+    alignItems: "center",
+    paddingVertical: 28,
+    gap: 10,
+    borderBottomWidth: 1,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatarText: { fontSize: 28, fontWeight: "700", color: "#FFFFFF", fontFamily: "Inter_700Bold" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  editNameRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20 },
+  editNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 20,
+  },
   name: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  nameInput: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 16, fontFamily: "Inter_400Regular" },
+  nameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+  },
   saveBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   saveBtnText: { color: "#FFFFFF", fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   email: { fontSize: 14, fontFamily: "Inter_400Regular" },
@@ -332,21 +395,53 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
   statDivider: { width: 1, marginVertical: 4 },
   section: { padding: 20, gap: 14 },
-  sectionTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", letterSpacing: -0.3 },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    letterSpacing: -0.3,
+  },
   prefCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" },
   prefRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
-  prefIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  prefIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   prefInfo: { flex: 1 },
   prefLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  prefValue: { fontSize: 14, fontWeight: "500", fontFamily: "Inter_500Medium", marginTop: 1 },
+  prefValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: "Inter_500Medium",
+    marginTop: 1,
+  },
   categoriesSection: { gap: 8 },
   catLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1 },
   chipText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  editPrefBtn: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1 },
+  editPrefBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   editPrefText: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
-  signOutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 14, borderRadius: 14, borderWidth: 1 },
+  signOutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   signOutText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   linkRow: {
     flexDirection: "row",
@@ -356,7 +451,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  linkIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  linkIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   linkText: { flex: 1, fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
   legalCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   legalRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },

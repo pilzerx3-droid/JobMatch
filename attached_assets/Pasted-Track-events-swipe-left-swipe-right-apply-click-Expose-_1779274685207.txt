@@ -1,0 +1,139 @@
+Track events:
+• swipe left
+• swipe right
+• apply click
+
+Expose in Profile stats.
+
+⸻
+
+6️⃣ Improve guest → signup conversion wall
+
+Current wall is basic.
+
+Upgrade to modal with:
+
+Headline:
+“Unlock unlimited job matches”
+
+Show benefits:
+• Unlimited swipes
+• Save jobs
+• Apply instantly
+• Personalized matching
+
+Buttons:
+• Continue with Google (Clerk SSO)
+• Continue with Email
+• Login
+
+Add subtle background blur.
+
+⸻
+
+7️⃣ Implement Match Score algorithm V1
+
+Currently fake.
+
+Create real scoring function based on:
+
+* experience level match
+* remote preference match
+* location match
+* salary match
+* category match
+
+Return 0–100 score.
+
+Save score in jobs.matchScore per user request.
+
+Sort Discover feed by score.
+
+⸻
+
+PART 3 — PREMIUM UI UPGRADE (VERY IMPORTANT)
+
+App must feel like a funded startup product.
+
+Global design changes:
+
+Implement design system:
+
+Colors:
+
+* Background: #0B0B0F
+* Card: #15151C
+* Accent: #FF4D6D
+* Secondary: #2A2A35
+* Text Primary: #FFFFFF
+* Text Secondary: #A1A1AA
+
+Typography:
+Use Inter font via expo-font.
+
+Spacing system:
+4 / 8 / 12 / 16 / 24 / 32
+
+Add:
+• Soft shadows on cards
+• Subtle gradients on header
+• Haptic feedback on swipe + like
+• Micro animations on button press
+
+⸻
+
+8️⃣ Upgrade Job Card design
+
+Enhancements:
+• Add company logo circle with glow ring
+• Add salary highlight section
+• Add “New” badge if job < 7 days old
+• Add smooth card stack depth animation
+• Add subtle parallax while dragging
+
+⸻
+
+9️⃣ Add empty states with illustrations
+
+Create polished empty states for:
+• No saved jobs
+• No matches
+• End of feed
+
+⸻
+
+PART 4 — MONETIZATION FOUNDATION (EMPLOYER SIDE)
+
+Stripe already connected.
+
+Now add job posting capability.
+
+⸻
+
+🔟 Employer job posting API
+
+Create endpoint:
+
+POST /api/employer/jobs
+
+Fields:
+
+* title
+* company
+* description
+* location
+* salary range
+* apply URL
+
+Add Stripe payment step:
+• One-time payment before publish
+• After success → job.isActive = true
+
+Admin dashboard:
+Add table of employer jobs.
+
+⸻
+
+PART 5 — PRODUCTION & APP STORE PREP
+
+11️⃣ Prepare production builds

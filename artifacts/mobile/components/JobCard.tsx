@@ -17,6 +17,8 @@ const REMOTE_COLORS: Record<string, string> = {
   onsite: "#3B82F6",
 };
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
 function formatSalary(min?: number | null, max?: number | null): string | null {
   const fmt = (n: number) =>
     n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`;
@@ -31,6 +33,9 @@ export function JobCard({ job, onPress, onUnsave }: JobCardProps) {
   const salary = formatSalary(job.salaryMin, job.salaryMax);
   const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
   const initials = job.company.name.substring(0, 2).toUpperCase();
+  const isNew = job.createdAt
+    ? Date.now() - new Date(job.createdAt).getTime() < SEVEN_DAYS_MS
+    : false;
 
   return (
     <Pressable
@@ -49,9 +54,16 @@ export function JobCard({ job, onPress, onUnsave }: JobCardProps) {
           <Text style={[styles.initials, { color: colors.primary }]}>{initials}</Text>
         </View>
         <View style={styles.info}>
-          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
-            {job.title}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+              {job.title}
+            </Text>
+            {isNew && (
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </View>
+            )}
+          </View>
           <Text style={[styles.company, { color: colors.mutedForeground }]} numberOfLines={1}>
             {job.company.name}
           </Text>
@@ -63,6 +75,13 @@ export function JobCard({ job, onPress, onUnsave }: JobCardProps) {
             </View>
             {salary && (
               <Text style={[styles.salary, { color: colors.foreground }]}>{salary}</Text>
+            )}
+            {job.matchScore != null && (
+              <View style={[styles.pill, { backgroundColor: "#22C55E18" }]}>
+                <Text style={[styles.pillText, { color: "#22C55E" }]}>
+                  {job.matchScore}%
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -99,19 +118,32 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   row: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   logo: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   initials: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
   info: { flex: 1, gap: 3 },
-  title: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  title: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", flexShrink: 1 },
+  newBadge: {
+    backgroundColor: "#F59E0B22",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  newBadgeText: { fontSize: 10, fontWeight: "700", color: "#F59E0B", fontFamily: "Inter_700Bold" },
   company: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  meta: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: 4 },
+  meta: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: 4, flexWrap: "wrap" },
   pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 100 },
   pillText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   salary: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   unsaveBtn: { padding: 4 },
-  tags: { flexDirection: "row", gap: 6 },
+  tags: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
   tag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 100, borderWidth: 1 },
   tagText: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });

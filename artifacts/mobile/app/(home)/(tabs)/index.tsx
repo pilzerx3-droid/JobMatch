@@ -7,13 +7,17 @@ import {
   GetJobsExperienceLevel,
   type Job,
 } from "@workspace/api-client-react";
-import { useAuth } from "@clerk/expo";
+import { useAuth, useSSO } from "@clerk/expo";
 import { Feather } from "@expo/vector-icons";
+import * as AuthSession from "expo-auth-session";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,6 +30,8 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { SwipeCard, type SwipeCardHandle } from "@/components/SwipeCard";
 import { useColors } from "@/hooks/useColors";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const GUEST_SWIPE_LIMIT = 5;
 
@@ -72,6 +78,13 @@ function FilterChip({
   );
 }
 
+const BENEFITS = [
+  { icon: "zap" as const, text: "Unlimited job swipes" },
+  { icon: "bookmark" as const, text: "Save jobs for later" },
+  { icon: "send" as const, text: "Apply with one tap" },
+  { icon: "star" as const, text: "Personalized match scores" },
+];
+
 function SignupWallModal({
   visible,
   trigger,
@@ -84,33 +97,80 @@ function SignupWallModal({
   canDismiss: boolean;
 }) {
   const colors = useColors();
+  const { startSSOFlow } = useSSO();
+  const [ssoLoading, setSsoLoading] = useState(false);
+
+  const handleGoogleSSO = async () => {
+    setSsoLoading(true);
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: "oauth_google",
+        redirectUrl: AuthSession.makeRedirectUri(),
+      });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSsoLoading(false);
+    }
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <View style={styles.modalOverlay}>
         <View
           style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
+          {/* Handle bar */}
+          <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
+
           <View style={[styles.modalIconWrap, { backgroundColor: colors.primary + "20" }]}>
-            <Feather name="lock" size={28} color={colors.primary} />
+            <Feather name="zap" size={28} color={colors.primary} />
           </View>
+
           <Text style={[styles.modalTitle, { color: colors.foreground }]}>
-            {trigger === "save" ? "Save this job" : "Keep discovering"}
+            {"Unlock unlimited\njob matches"}
           </Text>
+
           <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
             {trigger === "save"
-              ? "Create a free account to save jobs and track your applications."
-              : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep discovering!`}
+              ? "Create a free account to save jobs and apply instantly."
+              : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep going!`}
           </Text>
-          <View style={styles.modalBenefits}>
-            {["Save your favourite jobs", "Personalized match scores", "Track applications"].map(
-              (b) => (
-                <View key={b} style={styles.benefitRow}>
-                  <Feather name="check-circle" size={16} color="#22C55E" />
-                  <Text style={[styles.benefitText, { color: colors.foreground }]}>{b}</Text>
+
+          <View style={[styles.benefitsCard, { backgroundColor: colors.secondary }]}>
+            {BENEFITS.map((b) => (
+              <View key={b.text} style={styles.benefitRow}>
+                <View style={[styles.benefitIcon, { backgroundColor: colors.primary + "20" }]}>
+                  <Feather name={b.icon} size={13} color={colors.primary} />
                 </View>
-              )
-            )}
+                <Text style={[styles.benefitText, { color: colors.foreground }]}>{b.text}</Text>
+              </View>
+            ))}
           </View>
+
+          {Platform.OS !== "web" && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.googleBtn,
+                { opacity: pressed ? 0.9 : 1 },
+              ]}
+              onPress={handleGoogleSSO}
+              disabled={ssoLoading}
+            >
+              {ssoLoading ? (
+                <ActivityIndicator color="#09090B" size="small" />
+              ) : (
+                <>
+                  <Feather name="globe" size={18} color="#09090B" />
+                  <Text style={styles.googleBtnText}>Continue with Google</Text>
+                </>
+              )}
+            </Pressable>
+          )}
+
           <Pressable
             style={({ pressed }) => [
               styles.modalPrimaryBtn,
@@ -118,8 +178,9 @@ function SignupWallModal({
             ]}
             onPress={() => router.push("/(auth)/sign-up")}
           >
-            <Text style={styles.modalPrimaryBtnText}>Create Free Account</Text>
+            <Text style={styles.modalPrimaryBtnText}>Sign Up Free with Email</Text>
           </Pressable>
+
           <Pressable
             style={({ pressed }) => [
               styles.modalSecondaryBtn,
@@ -131,6 +192,7 @@ function SignupWallModal({
               I already have an account
             </Text>
           </Pressable>
+
           {canDismiss && (
             <Pressable style={styles.modalDismiss} onPress={onDismiss}>
               <Text style={[styles.modalDismissText, { color: colors.mutedForeground }]}>
@@ -167,6 +229,13 @@ export default function DiscoverScreen() {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const hasActiveFilters = !!(appliedSearch || jobTypeFilter || expFilter);
+
+  // Auto-dismiss signup wall when user signs in
+  useEffect(() => {
+    if (isSignedIn && showSignupWall) {
+      setShowSignupWall(false);
+    }
+  }, [isSignedIn, showSignupWall]);
 
   const resetQueue = useCallback(() => {
     loadedJobIds.current.clear();
@@ -440,7 +509,10 @@ export default function DiscoverScreen() {
           <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
             <Pressable
               style={[styles.actionBtn, styles.skipBtn]}
-              onPress={() => topCardRef.current?.swipeLeft()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                topCardRef.current?.swipeLeft();
+              }}
             >
               <Feather name="x" size={26} color="#EF4444" />
             </Pressable>
@@ -451,7 +523,10 @@ export default function DiscoverScreen() {
             </View>
             <Pressable
               style={[styles.actionBtn, styles.saveBtn]}
-              onPress={() => topCardRef.current?.swipeRight()}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                topCardRef.current?.swipeRight();
+              }}
             >
               <Feather name="heart" size={26} color="#22C55E" />
             </Pressable>
@@ -545,31 +620,137 @@ const styles = StyleSheet.create({
   tipContainer: { flex: 1, alignItems: "center" },
   tipText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   actionBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   skipBtn: { borderColor: "#EF4444", backgroundColor: "#EF444415" },
   saveBtn: { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
-  emptyIcon: { width: 90, height: 90, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 8 },
+  emptyIcon: {
+    width: 90,
+    height: 90,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
   emptyTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", textAlign: "center" },
-  emptySubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
+  emptySubtitle: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 22,
+  },
   refreshBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14, marginTop: 8 },
-  refreshBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center", padding: 24 },
-  modalCard: { width: "100%", borderRadius: 24, borderWidth: 1, padding: 28, alignItems: "center", gap: 14 },
-  modalIconWrap: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 4 },
-  modalTitle: { fontSize: 22, fontWeight: "800", fontFamily: "Inter_700Bold", textAlign: "center" },
-  modalSubtitle: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
-  modalBenefits: { width: "100%", gap: 8, marginVertical: 4 },
-  benefitRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  benefitText: { fontSize: 14, fontFamily: "Inter_400Regular" },
-  modalPrimaryBtn: { width: "100%", paddingVertical: 15, borderRadius: 14, alignItems: "center" },
-  modalPrimaryBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  modalSecondaryBtn: { width: "100%", paddingVertical: 13, borderRadius: 14, alignItems: "center", borderWidth: 1 },
+  refreshBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  // Signup wall modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "flex-end",
+  },
+  modalCard: {
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    padding: 28,
+    paddingBottom: 40,
+    alignItems: "center",
+    gap: 14,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  modalIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    fontFamily: "Inter_700Bold",
+    textAlign: "center",
+    letterSpacing: -0.5,
+    lineHeight: 30,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  benefitsCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+    marginVertical: 4,
+  },
+  benefitRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  benefitIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  benefitText: { fontSize: 14, fontFamily: "Inter_400Regular", flex: 1 },
+  googleBtn: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 14,
+    borderRadius: 14,
+  },
+  googleBtnText: {
+    color: "#09090B",
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+  },
+  modalPrimaryBtn: {
+    width: "100%",
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  modalPrimaryBtnText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  modalSecondaryBtn: {
+    width: "100%",
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: "center",
+    borderWidth: 1,
+  },
   modalSecondaryBtnText: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
   modalDismiss: { paddingVertical: 6 },
   modalDismissText: { fontSize: 13, fontFamily: "Inter_400Regular" },

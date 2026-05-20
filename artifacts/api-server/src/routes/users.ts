@@ -1,7 +1,12 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { userProfilesTable, pushTokensTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import {
+  userProfilesTable,
+  pushTokensTable,
+  swipeActionsTable,
+  jobClicksTable,
+} from "@workspace/db";
+import { eq, and, count } from "drizzle-orm";
 import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 
 const router = Router();
@@ -28,7 +33,38 @@ function formatProfile(profile: typeof userProfilesTable.$inferSelect) {
 router.get("/me", requireAuth, async (req, res, next) => {
   try {
     const { userProfile } = req as AuthRequest;
-    res.json(formatProfile(userProfile));
+
+    const [leftCount, rightCount, clickCount] = await Promise.all([
+      db
+        .select({ count: count() })
+        .from(swipeActionsTable)
+        .where(
+          and(
+            eq(swipeActionsTable.userId, userProfile.id),
+            eq(swipeActionsTable.direction, "left")
+          )
+        ),
+      db
+        .select({ count: count() })
+        .from(swipeActionsTable)
+        .where(
+          and(
+            eq(swipeActionsTable.userId, userProfile.id),
+            eq(swipeActionsTable.direction, "right")
+          )
+        ),
+      db
+        .select({ count: count() })
+        .from(jobClicksTable)
+        .where(eq(jobClicksTable.userId, userProfile.id)),
+    ]);
+
+    res.json({
+      ...formatProfile(userProfile),
+      swipesLeft: Number(leftCount[0]?.count ?? 0),
+      swipesRight: Number(rightCount[0]?.count ?? 0),
+      applicationsClicked: Number(clickCount[0]?.count ?? 0),
+    });
   } catch (err) {
     next(err);
   }
@@ -103,7 +139,6 @@ router.post("/me/push-token", requireAuth, async (req, res, next) => {
       return;
     }
 
-    // Upsert — if same user+token exists, just reactivate it
     const existing = await db
       .select({ id: pushTokensTable.id })
       .from(pushTokensTable)

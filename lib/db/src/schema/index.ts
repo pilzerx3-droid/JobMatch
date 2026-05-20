@@ -6,3 +6,4 @@ export * from "./employerProfiles";
 export * from "./jobClicks";
 export * from "./companyCareerUrls";
 export * from "./pushTokens";
+export * from "./userMetrics";
