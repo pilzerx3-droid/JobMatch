@@ -1,21 +1,27 @@
 import type { Job } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
-import {
-  Animated,
-  Dimensions,
-  Image,
-  PanResponder,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import React, { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { Dimensions, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 import { useColors } from "@/hooks/useColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3;
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
+
+export interface SwipeCardHandle {
+  swipeLeft: () => void;
+  swipeRight: () => void;
+}
 
 interface SwipeCardProps {
   job: Job;
@@ -66,11 +72,13 @@ function formatSalary(min?: number | null, max?: number | null): string | null {
 function CompanyLogo({
   logoUrl,
   name,
-  colors,
+  bgColor,
+  fgColor,
 }: {
   logoUrl?: string | null;
   name: string;
-  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+  bgColor: string;
+  fgColor: string;
 }) {
   const [error, setError] = useState(false);
   const initials = name.substring(0, 2).toUpperCase();
@@ -79,7 +87,7 @@ function CompanyLogo({
     return (
       <Image
         source={{ uri: logoUrl }}
-        style={styles.companyLogoImage}
+        style={styles.logoImage}
         onError={() => setError(true)}
         resizeMode="contain"
       />
@@ -87,219 +95,293 @@ function CompanyLogo({
   }
 
   return (
-    <View style={[styles.companyLogoFallback, { backgroundColor: colors.secondary }]}>
-      <Text style={[styles.companyInitials, { color: colors.primary }]}>{initials}</Text>
+    <View style={[styles.logoFallback, { backgroundColor: bgColor }]}>
+      <Text style={[styles.logoInitials, { color: fgColor }]}>{initials}</Text>
     </View>
   );
 }
 
-export function SwipeCard({
-  job,
-  onSwipeLeft,
-  onSwipeRight,
-  onPress,
-  isTop,
-  stackIndex = 0,
-}: SwipeCardProps) {
-  const colors = useColors();
-  const position = useRef(new Animated.ValueXY()).current;
-  const onSwipeRightRef = useRef(onSwipeRight);
-  const onSwipeLeftRef = useRef(onSwipeLeft);
+export const SwipeCard = forwardRef<SwipeCardHandle, SwipeCardProps>(
+  ({ job, onSwipeLeft, onSwipeRight, onPress, isTop, stackIndex = 0 }, ref) => {
+    const colors = useColors();
+    const translateX = useSharedValue(0);
+    const translateY = useSharedValue(0);
 
-  onSwipeRightRef.current = onSwipeRight;
-  onSwipeLeftRef.current = onSwipeLeft;
+    const onSwipeLeftRef = useRef(onSwipeLeft);
+    const onSwipeRightRef = useRef(onSwipeRight);
+    onSwipeLeftRef.current = onSwipeLeft;
+    onSwipeRightRef.current = onSwipeRight;
 
-  const rotate = position.x.interpolate({
-    inputRange: [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
-    outputRange: ["-15deg", "0deg", "15deg"],
-    extrapolate: "clamp",
-  });
-
-  const saveOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD * 0.5],
-    outputRange: [0, 1],
-    extrapolate: "clamp",
-  });
-
-  const skipOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD * 0.5, 0],
-    outputRange: [1, 0],
-    extrapolate: "clamp",
-  });
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, gesture) => {
-        position.setValue({ x: gesture.dx, y: gesture.dy });
+    useImperativeHandle(ref, () => ({
+      swipeLeft: () => {
+        translateX.value = withTiming(
+          -(SCREEN_WIDTH + 150),
+          { duration: 300 },
+          (done) => {
+            if (done) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(onSwipeLeftRef.current)();
+            }
+          }
+        );
       },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: SCREEN_WIDTH + 100, y: gesture.dy },
-            duration: 280,
-            useNativeDriver: true,
-          }).start(() => {
-            position.setValue({ x: 0, y: 0 });
-            onSwipeRightRef.current();
-          });
-        } else if (gesture.dx < -SWIPE_THRESHOLD) {
-          Animated.timing(position, {
-            toValue: { x: -(SCREEN_WIDTH + 100), y: gesture.dy },
-            duration: 280,
-            useNativeDriver: true,
-          }).start(() => {
-            position.setValue({ x: 0, y: 0 });
-            onSwipeLeftRef.current();
-          });
+      swipeRight: () => {
+        translateX.value = withTiming(
+          SCREEN_WIDTH + 150,
+          { duration: 300 },
+          (done) => {
+            if (done) {
+              translateX.value = 0;
+              translateY.value = 0;
+              runOnJS(onSwipeRightRef.current)();
+            }
+          }
+        );
+      },
+    }));
+
+    const panGesture = Gesture.Pan()
+      .enabled(isTop)
+      .minDistance(5)
+      .onUpdate((e) => {
+        translateX.value = e.translationX;
+        translateY.value = e.translationY;
+      })
+      .onEnd((e) => {
+        if (e.translationX > SWIPE_THRESHOLD) {
+          translateX.value = withTiming(
+            SCREEN_WIDTH + 150,
+            { duration: 280 },
+            (done) => {
+              if (done) {
+                translateX.value = 0;
+                translateY.value = 0;
+                runOnJS(onSwipeRightRef.current)();
+              }
+            }
+          );
+        } else if (e.translationX < -SWIPE_THRESHOLD) {
+          translateX.value = withTiming(
+            -(SCREEN_WIDTH + 150),
+            { duration: 280 },
+            (done) => {
+              if (done) {
+                translateX.value = 0;
+                translateY.value = 0;
+                runOnJS(onSwipeLeftRef.current)();
+              }
+            }
+          );
         } else {
-          Animated.spring(position, {
-            toValue: { x: 0, y: 0 },
-            friction: 6,
-            useNativeDriver: true,
-          }).start();
+          translateX.value = withSpring(0, { damping: 15 });
+          translateY.value = withSpring(0, { damping: 15 });
         }
-      },
-    })
-  ).current;
+      });
 
-  const salary = formatSalary(job.salaryMin, job.salaryMax);
-  const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
-  const expColor = EXP_COLORS[job.experienceLevel] ?? "#6B7280";
-  const jtColor = JOB_TYPE_COLORS[job.jobType] ?? "#6B7280";
-  const jtLabel = JOB_TYPE_LABELS[job.jobType] ?? job.jobType;
+    const cardStyle = useAnimatedStyle(() => {
+      if (!isTop) {
+        return {
+          transform: [
+            { scale: 1 - stackIndex * 0.04 },
+            { translateY: stackIndex * 10 },
+          ],
+        };
+      }
+      const rotate = interpolate(
+        translateX.value,
+        [-SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2],
+        [-15, 0, 15],
+        Extrapolation.CLAMP
+      );
+      return {
+        transform: [
+          { translateX: translateX.value },
+          { translateY: translateY.value },
+          { rotate: `${rotate}deg` },
+        ],
+      };
+    });
 
-  const cardTransform = isTop
-    ? [{ translateX: position.x }, { translateY: position.y }, { rotate }]
-    : [{ scale: 1 - stackIndex * 0.04 }, { translateY: stackIndex * 10 }];
+    const saveOverlayStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(
+        translateX.value,
+        [0, SWIPE_THRESHOLD * 0.6],
+        [0, 1],
+        Extrapolation.CLAMP
+      ),
+    }));
 
-  return (
-    <Animated.View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          zIndex: 10 - stackIndex,
-          transform: cardTransform,
-        },
-      ]}
-      {...(isTop ? panResponder.panHandlers : {})}
-    >
-      {isTop && (
-        <>
-          <Animated.View style={[styles.overlay, styles.saveOverlay, { opacity: saveOpacity }]}>
-            <Text style={[styles.overlayText, { color: "#22C55E" }]}>SAVE ♥</Text>
-          </Animated.View>
-          <Animated.View style={[styles.overlay, styles.skipOverlay, { opacity: skipOpacity }]}>
-            <Text style={[styles.overlayText, { color: "#EF4444" }]}>SKIP ✕</Text>
-          </Animated.View>
-        </>
-      )}
+    const skipOverlayStyle = useAnimatedStyle(() => ({
+      opacity: interpolate(
+        translateX.value,
+        [-SWIPE_THRESHOLD * 0.6, 0],
+        [1, 0],
+        Extrapolation.CLAMP
+      ),
+    }));
 
-      <Pressable style={styles.pressable} onPress={isTop ? onPress : undefined}>
-        <View style={styles.topRow}>
-          <View style={styles.logoWrapper}>
-            <CompanyLogo
-              logoUrl={job.company.logoUrl}
-              name={job.company.name}
-              colors={colors}
-            />
-          </View>
-          <View style={styles.topRight}>
-            {job.matchScore != null && (
-              <View style={[styles.matchBadge, { backgroundColor: "#22C55E20" }]}>
-                <Text style={[styles.matchText, { color: "#22C55E" }]}>
-                  {job.matchScore}% match
+    const salary = formatSalary(job.salaryMin, job.salaryMax);
+    const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
+    const expColor = EXP_COLORS[job.experienceLevel] ?? "#6B7280";
+    const jtColor = JOB_TYPE_COLORS[job.jobType] ?? "#6B7280";
+    const jtLabel = JOB_TYPE_LABELS[job.jobType] ?? job.jobType;
+
+    return (
+      <GestureDetector gesture={panGesture}>
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              zIndex: 10 - stackIndex,
+            },
+            cardStyle,
+          ]}
+        >
+          {isTop && (
+            <>
+              <Animated.View
+                style={[styles.overlay, styles.saveOverlay, saveOverlayStyle]}
+              >
+                <Text style={[styles.overlayText, { color: "#22C55E" }]}>SAVE ♥</Text>
+              </Animated.View>
+              <Animated.View
+                style={[styles.overlay, styles.skipOverlay, skipOverlayStyle]}
+              >
+                <Text style={[styles.overlayText, { color: "#EF4444" }]}>SKIP ✕</Text>
+              </Animated.View>
+            </>
+          )}
+
+          <Pressable
+            style={styles.pressable}
+            onPress={isTop ? onPress : undefined}
+          >
+            <View style={styles.topRow}>
+              <View style={styles.logoWrapper}>
+                <CompanyLogo
+                  logoUrl={job.company.logoUrl}
+                  name={job.company.name}
+                  bgColor={colors.secondary}
+                  fgColor={colors.primary}
+                />
+              </View>
+              <View style={styles.topRight}>
+                {job.matchScore != null && (
+                  <View style={[styles.pill, { backgroundColor: "#22C55E20" }]}>
+                    <Text style={[styles.pillText, { color: "#22C55E" }]}>
+                      {job.matchScore}% match
+                    </Text>
+                  </View>
+                )}
+                <View style={[styles.pill, { backgroundColor: jtColor + "22" }]}>
+                  <Text style={[styles.pillText, { color: jtColor }]}>{jtLabel}</Text>
+                </View>
+              </View>
+            </View>
+
+            <Text
+              style={[styles.jobTitle, { color: colors.foreground }]}
+              numberOfLines={2}
+            >
+              {job.title}
+            </Text>
+            <Text style={[styles.companyName, { color: colors.mutedForeground }]}>
+              {job.company.name}
+            </Text>
+
+            <View style={styles.metaRow}>
+              {job.location ? (
+                <View style={styles.metaItem}>
+                  <Feather name="map-pin" size={12} color={colors.mutedForeground} />
+                  <Text
+                    style={[styles.metaText, { color: colors.mutedForeground }]}
+                    numberOfLines={1}
+                  >
+                    {job.location}
+                  </Text>
+                </View>
+              ) : null}
+              <View style={[styles.pill, { backgroundColor: remoteColor + "22" }]}>
+                <Text style={[styles.pillText, { color: remoteColor }]}>
+                  {job.remoteType.toUpperCase()}
                 </Text>
               </View>
+              <View style={[styles.pill, { backgroundColor: expColor + "22" }]}>
+                <Text style={[styles.pillText, { color: expColor }]}>
+                  {job.experienceLevel.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            {salary ? (
+              <View style={styles.salaryRow}>
+                <Feather name="dollar-sign" size={15} color={colors.foreground} />
+                <Text style={[styles.salary, { color: colors.foreground }]}>
+                  {salary} / yr
+                </Text>
+              </View>
+            ) : null}
+
+            <Text
+              style={[styles.description, { color: colors.mutedForeground }]}
+              numberOfLines={4}
+            >
+              {job.shortDescription}
+            </Text>
+
+            {job.tags.length > 0 && (
+              <View style={styles.tags}>
+                {job.tags.slice(0, 6).map((tag) => (
+                  <View
+                    key={tag}
+                    style={[
+                      styles.tag,
+                      {
+                        backgroundColor: colors.secondary,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.tagText, { color: colors.mutedForeground }]}>
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             )}
-            <View style={[styles.pill, { backgroundColor: jtColor + "22" }]}>
-              <Text style={[styles.pillText, { color: jtColor }]}>{jtLabel}</Text>
-            </View>
-          </View>
-        </View>
 
-        <Text style={[styles.jobTitle, { color: colors.foreground }]} numberOfLines={2}>
-          {job.title}
-        </Text>
-        <Text style={[styles.companyName, { color: colors.mutedForeground }]}>
-          {job.company.name}
-          {job.company.website && (
-            <Text style={{ fontSize: 12 }}> · {job.company.website.replace(/^https?:\/\//, "")}</Text>
-          )}
-        </Text>
-
-        <View style={styles.metaRow}>
-          {job.location && (
-            <View style={styles.metaItem}>
-              <Feather name="map-pin" size={12} color={colors.mutedForeground} />
-              <Text style={[styles.metaText, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {job.location}
-              </Text>
-            </View>
-          )}
-          <View style={[styles.pill, { backgroundColor: remoteColor + "22" }]}>
-            <Text style={[styles.pillText, { color: remoteColor }]}>
-              {job.remoteType.toUpperCase()}
-            </Text>
-          </View>
-          <View style={[styles.pill, { backgroundColor: expColor + "22" }]}>
-            <Text style={[styles.pillText, { color: expColor }]}>
-              {job.experienceLevel.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-
-        {salary ? (
-          <View style={styles.salaryRow}>
-            <Feather name="dollar-sign" size={16} color={colors.foreground} />
-            <Text style={[styles.salary, { color: colors.foreground }]}>{salary} / year</Text>
-          </View>
-        ) : null}
-
-        <Text
-          style={[styles.description, { color: colors.mutedForeground }]}
-          numberOfLines={4}
-        >
-          {job.shortDescription}
-        </Text>
-
-        {job.tags.length > 0 && (
-          <View style={styles.tags}>
-            {job.tags.slice(0, 6).map((tag) => (
+            <View style={[styles.swipeHint, { borderTopColor: colors.border }]}>
               <View
-                key={tag}
                 style={[
-                  styles.tag,
-                  { backgroundColor: colors.secondary, borderColor: colors.border },
+                  styles.hintBtn,
+                  { borderColor: "#EF4444", backgroundColor: "#EF444415" },
                 ]}
               >
-                <Text style={[styles.tagText, { color: colors.mutedForeground }]}>{tag}</Text>
+                <Feather name="x" size={20} color="#EF4444" />
               </View>
-            ))}
-          </View>
-        )}
+              <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
+                {isTop ? "swipe or tap buttons" : ""}
+              </Text>
+              <View
+                style={[
+                  styles.hintBtn,
+                  { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
+                ]}
+              >
+                <Feather name="heart" size={20} color="#22C55E" />
+              </View>
+            </View>
+          </Pressable>
+        </Animated.View>
+      </GestureDetector>
+    );
+  }
+);
 
-        <View style={[styles.swipeHint, { borderTopColor: colors.border }]}>
-          <View
-            style={[styles.hintBtn, { borderColor: "#EF4444", backgroundColor: "#EF444415" }]}
-          >
-            <Feather name="x" size={22} color="#EF4444" />
-          </View>
-          <Text style={[styles.hintText, { color: colors.mutedForeground }]}>
-            Tap card for details
-          </Text>
-          <View
-            style={[styles.hintBtn, { borderColor: "#22C55E", backgroundColor: "#22C55E15" }]}
-          >
-            <Feather name="heart" size={22} color="#22C55E" />
-          </View>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
-}
+SwipeCard.displayName = "SwipeCard";
 
 const LOGO_SIZE = 56;
 
@@ -341,22 +423,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
   },
-  companyLogoImage: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    borderRadius: 14,
-  },
-  companyLogoFallback: {
+  logoImage: { width: LOGO_SIZE, height: LOGO_SIZE, borderRadius: 14 },
+  logoFallback: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  companyInitials: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  logoInitials: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold" },
   topRight: { gap: 6, alignItems: "flex-end" },
-  matchBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
-  matchText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   pillText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   jobTitle: {
@@ -385,12 +461,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   hintBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  hintText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  hintText: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });

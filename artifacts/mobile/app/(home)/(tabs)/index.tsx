@@ -24,7 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { SwipeCard } from "@/components/SwipeCard";
+import { SwipeCard, type SwipeCardHandle } from "@/components/SwipeCard";
 import { useColors } from "@/hooks/useColors";
 
 const GUEST_SWIPE_LIMIT = 5;
@@ -65,12 +65,7 @@ function FilterChip({
         },
       ]}
     >
-      <Text
-        style={[
-          styles.chipText,
-          { color: active ? "#FFFFFF" : colors.mutedForeground },
-        ]}
-      >
+      <Text style={[styles.chipText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>
         {label}
       </Text>
     </Pressable>
@@ -104,7 +99,7 @@ function SignupWallModal({
           <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
             {trigger === "save"
               ? "Create a free account to save jobs and track your applications."
-              : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep discovering personalized matches.`}
+              : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep discovering!`}
           </Text>
           <View style={styles.modalBenefits}>
             {["Save your favourite jobs", "Personalized match scores", "Track applications"].map(
@@ -158,6 +153,7 @@ export default function DiscoverScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const loadedJobIds = useRef(new Set<number>());
+  const topCardRef = useRef<SwipeCardHandle>(null);
 
   const guestSwipeCount = useRef(0);
   const [showSignupWall, setShowSignupWall] = useState(false);
@@ -227,6 +223,7 @@ export default function DiscoverScreen() {
     query: {
       queryKey: getGetJobsQueryKey(jobsParams),
       enabled: hasMore && jobQueue.length < 5,
+      staleTime: 0,
     },
   });
 
@@ -234,8 +231,13 @@ export default function DiscoverScreen() {
     if (!data) return;
     const newJobs = data.jobs.filter((j) => !loadedJobIds.current.has(j.id));
     newJobs.forEach((j) => loadedJobIds.current.add(j.id));
-    setJobQueue((prev) => [...prev, ...newJobs]);
+    if (newJobs.length > 0) {
+      setJobQueue((prev) => [...prev, ...newJobs]);
+    }
     setHasMore(data.hasMore);
+    if (data.hasMore && newJobs.length > 0) {
+      setPage((p) => p + 1);
+    }
   }, [data]);
 
   const { mutate: swipeJob } = useSwipeJob({
@@ -251,7 +253,6 @@ export default function DiscoverScreen() {
   const handleSwipe = useCallback(
     (direction: "left" | "right", job: Job) => {
       setJobQueue((prev) => prev.filter((j) => j.id !== job.id));
-      if (jobQueue.length <= 4 && hasMore) setPage((p) => p + 1);
 
       if (!isSignedIn) {
         guestSwipeCount.current += 1;
@@ -268,11 +269,8 @@ export default function DiscoverScreen() {
       }
 
       swipeJob({ jobId: job.id, data: { direction } });
-      if (direction === "right") {
-        queryClient.invalidateQueries({ queryKey: getGetSavedJobsQueryKey() });
-      }
     },
-    [isSignedIn, swipeJob, jobQueue.length, hasMore, queryClient]
+    [isSignedIn, swipeJob]
   );
 
   const handleRefresh = () => {
@@ -283,10 +281,11 @@ export default function DiscoverScreen() {
 
   const isInitialLoad = isLoading && jobQueue.length === 0;
   const isEmpty = !isLoading && !isFetching && jobQueue.length === 0 && !hasMore;
+  const visibleCards = jobQueue.slice(0, 3);
 
   if (isInitialLoad) {
     return (
-      <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
+      <SafeAreaView style={[styles.center, { backgroundColor: colors.background, flex: 1 }]}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
           {appliedSearch ? `Searching "${appliedSearch}"…` : "Finding your matches…"}
@@ -294,8 +293,6 @@ export default function DiscoverScreen() {
       </SafeAreaView>
     );
   }
-
-  const visibleCards = jobQueue.slice(0, 3);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -311,22 +308,14 @@ export default function DiscoverScreen() {
         <View style={styles.headerRight}>
           {!isSignedIn && (
             <Pressable
-              style={[
-                styles.guestBadge,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
+              style={[styles.guestBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => router.push("/(auth)/sign-up")}
             >
               <Feather name="user-plus" size={13} color={colors.primary} />
               <Text style={[styles.guestBadgeText, { color: colors.primary }]}>Sign up</Text>
             </Pressable>
           )}
-          <View
-            style={[
-              styles.countBadge,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
+          <View style={[styles.countBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.countText, { color: colors.mutedForeground }]}>
               {jobQueue.length} left
             </Text>
@@ -335,12 +324,7 @@ export default function DiscoverScreen() {
       </View>
 
       <View style={styles.filterArea}>
-        <View
-          style={[
-            styles.searchBar,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
+        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Feather name="search" size={16} color={colors.mutedForeground} />
           <TextInput
             style={[styles.searchInput, { color: colors.foreground }]}
@@ -349,7 +333,6 @@ export default function DiscoverScreen() {
             value={searchText}
             onChangeText={handleSearchChange}
             returnKeyType="search"
-            clearButtonMode="never"
           />
           {searchText ? (
             <Pressable onPress={() => handleSearchChange("")} hitSlop={8}>
@@ -432,6 +415,7 @@ export default function DiscoverScreen() {
               return (
                 <SwipeCard
                   key={job.id}
+                  ref={isTop ? topCardRef : undefined}
                   job={job}
                   isTop={isTop}
                   stackIndex={stackIndex}
@@ -441,12 +425,9 @@ export default function DiscoverScreen() {
                 />
               );
             })}
-            {isFetching && jobQueue.length < 3 && (
+            {isFetching && jobQueue.length === 0 && (
               <View
-                style={[
-                  styles.loadingCard,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
+                style={[styles.loadingCard, { backgroundColor: colors.card, borderColor: colors.border }]}
               >
                 <ActivityIndicator color={colors.primary} />
                 <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
@@ -459,9 +440,7 @@ export default function DiscoverScreen() {
           <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
             <Pressable
               style={[styles.actionBtn, styles.skipBtn]}
-              onPress={() => {
-                if (jobQueue[0]) handleSwipe("left", jobQueue[0]);
-              }}
+              onPress={() => topCardRef.current?.swipeLeft()}
             >
               <Feather name="x" size={26} color="#EF4444" />
             </Pressable>
@@ -472,9 +451,7 @@ export default function DiscoverScreen() {
             </View>
             <Pressable
               style={[styles.actionBtn, styles.saveBtn]}
-              onPress={() => {
-                if (jobQueue[0]) handleSwipe("right", jobQueue[0]);
-              }}
+              onPress={() => topCardRef.current?.swipeRight()}
             >
               <Feather name="heart" size={26} color="#22C55E" />
             </Pressable>
@@ -515,7 +492,6 @@ const styles = StyleSheet.create({
   guestBadgeText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   countBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
   countText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-
   filterArea: { paddingBottom: 4, gap: 8 },
   searchBar: {
     flexDirection: "row",
@@ -527,18 +503,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    padding: 0,
-  },
-  chipsRow: {
-    paddingHorizontal: 16,
-    gap: 8,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", padding: 0 },
+  chipsRow: { paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" },
   chip: {
     flexDirection: "row",
     alignItems: "center",
@@ -551,7 +517,6 @@ const styles = StyleSheet.create({
   clearChip: { backgroundColor: "#EF444415" },
   chipText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   chipDivider: { width: 1, height: 20, borderRadius: 1 },
-
   cardStack: {
     flex: 1,
     marginHorizontal: 16,
@@ -580,37 +545,22 @@ const styles = StyleSheet.create({
   tipContainer: { flex: 1, alignItems: "center" },
   tipText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   actionBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
   },
   skipBtn: { borderColor: "#EF4444", backgroundColor: "#EF444415" },
   saveBtn: { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
-
   emptyIcon: { width: 90, height: 90, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   emptyTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", textAlign: "center" },
   emptySubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
   refreshBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14, marginTop: 8 },
   refreshBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-  },
-  modalCard: {
-    width: "100%",
-    borderRadius: 24,
-    borderWidth: 1,
-    padding: 28,
-    alignItems: "center",
-    gap: 14,
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "center", padding: 24 },
+  modalCard: { width: "100%", borderRadius: 24, borderWidth: 1, padding: 28, alignItems: "center", gap: 14 },
   modalIconWrap: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   modalTitle: { fontSize: 22, fontWeight: "800", fontFamily: "Inter_700Bold", textAlign: "center" },
   modalSubtitle: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },

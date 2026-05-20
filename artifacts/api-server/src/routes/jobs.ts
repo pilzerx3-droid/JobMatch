@@ -81,8 +81,8 @@ function serializeJob(
 let syncPromise: Promise<void> | null = null;
 
 async function ensureJobs() {
-  if ((await jobsCount()) === 0) {
-    await syncFromRemotive(150, true);
+  if ((await jobsCount()) < 30) {
+    await syncFromRemotive(200, true);
   }
 }
 
