@@ -13,8 +13,12 @@ function NativeTabLayout() {
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} />
-        <Label>Discover</Label>
+        <Icon sf={{ default: "rectangle.stack", selected: "rectangle.stack.fill" }} />
+        <Label>Swipe</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="search">
+        <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
+        <Label>Search</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="saved">
         <Icon sf={{ default: "bookmark", selected: "bookmark.fill" }} />
@@ -68,12 +72,24 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Discover",
+          title: "Swipe",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="briefcase" tintColor={color} size={24} />
+              <SymbolView name="rectangle.stack" tintColor={color} size={24} />
             ) : (
-              <Feather name="briefcase" size={22} color={color} />
+              <Feather name="layers" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: "Search",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="magnifyingglass" tintColor={color} size={24} />
+            ) : (
+              <Feather name="search" size={22} color={color} />
             ),
         }}
       />

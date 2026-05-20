@@ -155,6 +155,8 @@ router.get("/", optionalAuth, async (req, res, next) => {
       jobType,
       experienceLevel,
       remoteType,
+      location,
+      category,
     } = req.query as Record<string, string>;
 
     const conditions: ReturnType<typeof eq>[] = [eq(jobsTable.isActive, true)];
@@ -183,6 +185,14 @@ router.get("/", optionalAuth, async (req, res, next) => {
     if (jobType) conditions.push(eq(jobsTable.jobType, jobType) as any);
     if (experienceLevel) conditions.push(eq(jobsTable.experienceLevel, experienceLevel) as any);
     if (remoteType) conditions.push(eq(jobsTable.remoteType, remoteType) as any);
+    if (location && location.trim()) {
+      conditions.push(ilike(jobsTable.location, `%${location.trim()}%`) as any);
+    }
+    if (category && category.trim()) {
+      conditions.push(
+        sql`${jobsTable.tags}::text ILIKE ${`%${category.trim()}%`}` as any
+      );
+    }
 
     const where = and(...conditions);
     const offset = (Number(page) - 1) * Number(limit);

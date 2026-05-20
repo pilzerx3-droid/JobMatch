@@ -3,8 +3,6 @@ import {
   useSwipeJob,
   getGetJobsQueryKey,
   getGetSavedJobsQueryKey,
-  GetJobsJobType,
-  GetJobsExperienceLevel,
   type Job,
 } from "@workspace/api-client-react";
 import { useAuth, useSSO } from "@clerk/expo";
@@ -20,10 +18,8 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -40,49 +36,6 @@ import { useColors } from "@/hooks/useColors";
 WebBrowser.maybeCompleteAuthSession();
 
 const GUEST_SWIPE_LIMIT = 5;
-
-const JOB_TYPE_CHIPS = [
-  { label: "Full-time", value: "fulltime" },
-  { label: "Contract", value: "contract" },
-  { label: "Part-time", value: "parttime" },
-  { label: "Intern", value: "internship" },
-];
-
-const EXP_CHIPS = [
-  { label: "Junior", value: "junior" },
-  { label: "Mid", value: "mid" },
-  { label: "Senior", value: "senior" },
-  { label: "Lead", value: "lead" },
-];
-
-function FilterChip({
-  label,
-  active,
-  onPress,
-  colors,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.chip,
-        {
-          backgroundColor: active ? colors.primary : colors.card,
-          borderColor: active ? colors.primary : colors.border,
-        },
-      ]}
-    >
-      <Text style={[styles.chipText, { color: active ? "#FFFFFF" : colors.mutedForeground }]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
 
 const BENEFITS = [
   { icon: "zap" as const, text: "Unlimited job swipes" },
@@ -126,26 +79,19 @@ function SignupWallModal({
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent>
       <View style={styles.modalOverlay}>
-        <View
-          style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-        >
-          {/* Handle bar */}
+        <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.modalHandle, { backgroundColor: colors.border }]} />
-
           <View style={[styles.modalIconWrap, { backgroundColor: colors.primary + "20" }]}>
             <Feather name="zap" size={28} color={colors.primary} />
           </View>
-
           <Text style={[styles.modalTitle, { color: colors.foreground }]}>
             {"Unlock unlimited\njob matches"}
           </Text>
-
           <Text style={[styles.modalSubtitle, { color: colors.mutedForeground }]}>
             {trigger === "save"
               ? "Create a free account to save jobs and apply instantly."
               : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep going!`}
           </Text>
-
           <View style={[styles.benefitsCard, { backgroundColor: colors.secondary }]}>
             {BENEFITS.map((b) => (
               <View key={b.text} style={styles.benefitRow}>
@@ -156,13 +102,9 @@ function SignupWallModal({
               </View>
             ))}
           </View>
-
           {Platform.OS !== "web" && (
             <Pressable
-              style={({ pressed }) => [
-                styles.googleBtn,
-                { opacity: pressed ? 0.9 : 1 },
-              ]}
+              style={({ pressed }) => [styles.googleBtn, { opacity: pressed ? 0.9 : 1 }]}
               onPress={handleGoogleSSO}
               disabled={ssoLoading}
             >
@@ -176,7 +118,6 @@ function SignupWallModal({
               )}
             </Pressable>
           )}
-
           <Pressable
             style={({ pressed }) => [
               styles.modalPrimaryBtn,
@@ -186,7 +127,6 @@ function SignupWallModal({
           >
             <Text style={styles.modalPrimaryBtnText}>Sign Up Free with Email</Text>
           </Pressable>
-
           <Pressable
             style={({ pressed }) => [
               styles.modalSecondaryBtn,
@@ -198,7 +138,6 @@ function SignupWallModal({
               I already have an account
             </Text>
           </Pressable>
-
           {canDismiss && (
             <Pressable style={styles.modalDismiss} onPress={onDismiss}>
               <Text style={[styles.modalDismissText, { color: colors.mutedForeground }]}>
@@ -228,17 +167,10 @@ function AnimatedActionButton({
   return (
     <Animated.View style={animStyle}>
       <Pressable
-        style={[
-          styles.actionBtn,
-          { shadowColor: isSkip ? "#EF4444" : "#22C55E" },
-        ]}
+        style={[styles.actionBtn, { shadowColor: isSkip ? "#EF4444" : "#22C55E" }]}
         onPress={onPress}
-        onPressIn={() => {
-          scale.value = withSpring(0.82, { damping: 8, stiffness: 400 });
-        }}
-        onPressOut={() => {
-          scale.value = withSpring(1, { damping: 6, stiffness: 300 });
-        }}
+        onPressIn={() => { scale.value = withSpring(0.82, { damping: 8, stiffness: 400 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 6, stiffness: 300 }); }}
       >
         <LinearGradient
           colors={isSkip ? ["#FF5252", "#EF4444"] : ["#4ADE80", "#22C55E"]}
@@ -252,7 +184,7 @@ function AnimatedActionButton({
   );
 }
 
-export default function DiscoverScreen() {
+export default function SwipeScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const { isSignedIn } = useAuth();
@@ -268,19 +200,8 @@ export default function DiscoverScreen() {
   const [signupTrigger, setSignupTrigger] = useState<"save" | "limit">("limit");
   const [signupCanDismiss, setSignupCanDismiss] = useState(true);
 
-  const [searchText, setSearchText] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState("");
-  const [jobTypeFilter, setJobTypeFilter] = useState("");
-  const [expFilter, setExpFilter] = useState("");
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const hasActiveFilters = !!(appliedSearch || jobTypeFilter || expFilter);
-
-  // Auto-dismiss signup wall when user signs in
   useEffect(() => {
-    if (isSignedIn && showSignupWall) {
-      setShowSignupWall(false);
-    }
+    if (isSignedIn && showSignupWall) setShowSignupWall(false);
   }, [isSignedIn, showSignupWall]);
 
   const resetQueue = useCallback(() => {
@@ -290,49 +211,7 @@ export default function DiscoverScreen() {
     setHasMore(true);
   }, []);
 
-  const handleSearchChange = useCallback(
-    (text: string) => {
-      setSearchText(text);
-      clearTimeout(searchDebounceRef.current);
-      searchDebounceRef.current = setTimeout(() => {
-        setAppliedSearch(text.trim());
-        resetQueue();
-      }, 400);
-    },
-    [resetQueue]
-  );
-
-  const toggleJobType = useCallback(
-    (value: string) => {
-      setJobTypeFilter((prev) => (prev === value ? "" : value));
-      resetQueue();
-    },
-    [resetQueue]
-  );
-
-  const toggleExp = useCallback(
-    (value: string) => {
-      setExpFilter((prev) => (prev === value ? "" : value));
-      resetQueue();
-    },
-    [resetQueue]
-  );
-
-  const clearAllFilters = useCallback(() => {
-    setSearchText("");
-    setAppliedSearch("");
-    setJobTypeFilter("");
-    setExpFilter("");
-    resetQueue();
-  }, [resetQueue]);
-
-  const jobsParams = {
-    page,
-    limit: 10,
-    ...(appliedSearch ? { search: appliedSearch } : {}),
-    ...(jobTypeFilter ? { jobType: jobTypeFilter as GetJobsJobType } : {}),
-    ...(expFilter ? { experienceLevel: expFilter as GetJobsExperienceLevel } : {}),
-  };
+  const jobsParams = { page, limit: 10 };
 
   const { data, isLoading, isFetching } = useGetJobs(jobsParams, {
     query: {
@@ -346,13 +225,9 @@ export default function DiscoverScreen() {
     if (!data) return;
     const newJobs = data.jobs.filter((j) => !loadedJobIds.current.has(j.id));
     newJobs.forEach((j) => loadedJobIds.current.add(j.id));
-    if (newJobs.length > 0) {
-      setJobQueue((prev) => [...prev, ...newJobs]);
-    }
+    if (newJobs.length > 0) setJobQueue((prev) => [...prev, ...newJobs]);
     setHasMore(data.hasMore);
-    if (data.hasMore && newJobs.length > 0) {
-      setPage((p) => p + 1);
-    }
+    if (data.hasMore && newJobs.length > 0) setPage((p) => p + 1);
   }, [data]);
 
   const { mutate: swipeJob } = useSwipeJob({
@@ -368,7 +243,6 @@ export default function DiscoverScreen() {
   const handleSwipe = useCallback(
     (direction: "left" | "right", job: Job) => {
       setJobQueue((prev) => prev.filter((j) => j.id !== job.id));
-
       if (!isSignedIn) {
         guestSwipeCount.current += 1;
         if (direction === "right") {
@@ -382,17 +256,10 @@ export default function DiscoverScreen() {
         }
         return;
       }
-
       swipeJob({ jobId: job.id, data: { direction } });
     },
     [isSignedIn, swipeJob]
   );
-
-  const handleRefresh = () => {
-    guestSwipeCount.current = 0;
-    setShowSignupWall(false);
-    clearAllFilters();
-  };
 
   const isInitialLoad = isLoading && jobQueue.length === 0;
   const isEmpty = !isLoading && !isFetching && jobQueue.length === 0 && !hasMore;
@@ -400,182 +267,156 @@ export default function DiscoverScreen() {
 
   if (isInitialLoad) {
     return (
-      <SafeAreaView style={[styles.center, { backgroundColor: colors.background, flex: 1 }]}>
-        <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-          {appliedSearch ? `Searching "${appliedSearch}"…` : "Finding your matches…"}
-        </Text>
-      </SafeAreaView>
+      <LinearGradient colors={["#09090B", "#0F0F14", colors.background]} style={{ flex: 1 }}>
+        <SafeAreaView style={[styles.center, { flex: 1 }]}>
+          <ActivityIndicator color={colors.primary} size="large" />
+          <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+            Finding your matches…
+          </Text>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <SignupWallModal
-        visible={showSignupWall}
-        trigger={signupTrigger}
-        canDismiss={signupCanDismiss}
-        onDismiss={() => setShowSignupWall(false)}
-      />
+    <LinearGradient colors={["#09090B", "#0F0F14", colors.background]} style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        <SignupWallModal
+          visible={showSignupWall}
+          trigger={signupTrigger}
+          canDismiss={signupCanDismiss}
+          onDismiss={() => setShowSignupWall(false)}
+        />
 
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Discover</Text>
-        <View style={styles.headerRight}>
-          {!isSignedIn && (
-            <Pressable
-              style={[styles.guestBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => router.push("/(auth)/sign-up")}
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <LinearGradient
+              colors={[colors.primary, "#FF2D55"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logoMark}
             >
-              <Feather name="user-plus" size={13} color={colors.primary} />
-              <Text style={[styles.guestBadgeText, { color: colors.primary }]}>Sign up</Text>
-            </Pressable>
-          )}
-          <View style={[styles.countBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Text style={[styles.countText, { color: colors.mutedForeground }]}>
-              {jobQueue.length} left
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.filterArea}>
-        <View style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Feather name="search" size={16} color={colors.mutedForeground} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.foreground }]}
-            placeholder="Search jobs, skills, companies…"
-            placeholderTextColor={colors.mutedForeground}
-            value={searchText}
-            onChangeText={handleSearchChange}
-            returnKeyType="search"
-          />
-          {searchText ? (
-            <Pressable onPress={() => handleSearchChange("")} hitSlop={8}>
-              <Feather name="x" size={16} color={colors.mutedForeground} />
-            </Pressable>
-          ) : null}
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-        >
-          {JOB_TYPE_CHIPS.map((c) => (
-            <FilterChip
-              key={c.value}
-              label={c.label}
-              active={jobTypeFilter === c.value}
-              onPress={() => toggleJobType(c.value)}
-              colors={colors}
-            />
-          ))}
-          <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
-          {EXP_CHIPS.map((c) => (
-            <FilterChip
-              key={c.value}
-              label={c.label}
-              active={expFilter === c.value}
-              onPress={() => toggleExp(c.value)}
-              colors={colors}
-            />
-          ))}
-          {hasActiveFilters && (
-            <>
-              <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
-              <Pressable
-                onPress={clearAllFilters}
-                style={[styles.chip, styles.clearChip, { borderColor: "#EF4444" }]}
-              >
-                <Feather name="x" size={12} color="#EF4444" />
-                <Text style={[styles.chipText, { color: "#EF4444" }]}>Clear</Text>
-              </Pressable>
-            </>
-          )}
-        </ScrollView>
-      </View>
-
-      {isEmpty ? (
-        <View style={[styles.center, { flex: 1 }]}>
-          <View style={[styles.emptyIcon, { backgroundColor: colors.card }]}>
-            <Feather
-              name={hasActiveFilters ? "search" : "briefcase"}
-              size={40}
-              color={colors.mutedForeground}
-            />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-            {hasActiveFilters ? "No matches found" : "You're all caught up!"}
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-            {hasActiveFilters
-              ? "Try adjusting your filters or search terms."
-              : "You've reviewed all available jobs. Check back soon."}
-          </Text>
-          <Pressable
-            style={[styles.refreshBtn, { backgroundColor: colors.primary }]}
-            onPress={handleRefresh}
-          >
-            <Text style={styles.refreshBtnText}>
-              {hasActiveFilters ? "Clear Filters" : "Start Over"}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <View style={styles.cardStack}>
-            {[...visibleCards].reverse().map((job, reversedIndex) => {
-              const stackIndex = visibleCards.length - 1 - reversedIndex;
-              const isTop = stackIndex === 0;
-              return (
-                <SwipeCard
-                  key={job.id}
-                  ref={isTop ? topCardRef : undefined}
-                  job={job}
-                  isTop={isTop}
-                  stackIndex={stackIndex}
-                  onSwipeLeft={() => handleSwipe("left", job)}
-                  onSwipeRight={() => handleSwipe("right", job)}
-                  onPress={() => router.push(`/(home)/job/${job.id}`)}
-                />
-              );
-            })}
-            {isFetching && jobQueue.length === 0 && (
-              <View
-                style={[styles.loadingCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              >
-                <ActivityIndicator color={colors.primary} />
-                <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-                  Loading more…
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
-            <AnimatedActionButton
-              direction="left"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                topCardRef.current?.swipeLeft();
-              }}
-            />
-            <View style={styles.tipContainer}>
-              <Text style={[styles.tipText, { color: colors.mutedForeground }]}>
-                ← skip · save →
+              <Feather name="briefcase" size={14} color="#FFF" />
+            </LinearGradient>
+            <View>
+              <Text style={styles.headerTitle}>Swipe</Text>
+              <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
+                {jobQueue.length > 0 ? `${jobQueue.length} jobs waiting` : "All caught up!"}
               </Text>
             </View>
-            <AnimatedActionButton
-              direction="right"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-                topCardRef.current?.swipeRight();
-              }}
-            />
           </View>
-        </>
-      )}
-    </SafeAreaView>
+          <View style={styles.headerRight}>
+            {!isSignedIn && (
+              <Pressable
+                style={[styles.signUpPill, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
+                onPress={() => router.push("/(auth)/sign-up")}
+              >
+                <Feather name="user-plus" size={13} color={colors.primary} />
+                <Text style={[styles.signUpPillText, { color: colors.primary }]}>Sign up</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.searchPill, { backgroundColor: "#FFFFFF10", borderColor: "#FFFFFF18" }]}
+              onPress={() => router.push("/(home)/(tabs)/search")}
+            >
+              <Feather name="search" size={14} color="#FFFFFF80" />
+              <Text style={[styles.searchPillText, { color: "#FFFFFF80" }]}>Search</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {isEmpty ? (
+          <View style={[styles.center, { flex: 1 }]}>
+            <View style={[styles.emptyIcon, { backgroundColor: "#FFFFFF0A", borderColor: "#FFFFFF15" }]}>
+              <Feather name="briefcase" size={40} color={colors.mutedForeground} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: "#FFFFFF" }]}>You're all caught up!</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+              You've reviewed all available jobs.{"\n"}Check back soon for new listings.
+            </Text>
+            <Pressable
+              style={[styles.refreshBtn, { backgroundColor: colors.primary }]}
+              onPress={() => {
+                guestSwipeCount.current = 0;
+                setShowSignupWall(false);
+                resetQueue();
+              }}
+            >
+              <Text style={styles.refreshBtnText}>Start Over</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            {/* Card stack */}
+            <View style={styles.cardStack}>
+              {[...visibleCards].reverse().map((job, reversedIndex) => {
+                const stackIndex = visibleCards.length - 1 - reversedIndex;
+                const isTop = stackIndex === 0;
+                return (
+                  <SwipeCard
+                    key={job.id}
+                    ref={isTop ? topCardRef : undefined}
+                    job={job}
+                    isTop={isTop}
+                    stackIndex={stackIndex}
+                    onSwipeLeft={() => handleSwipe("left", job)}
+                    onSwipeRight={() => handleSwipe("right", job)}
+                    onPress={() => router.push(`/(home)/job/${job.id}`)}
+                  />
+                );
+              })}
+              {isFetching && jobQueue.length === 0 && (
+                <View style={[styles.loadingCard, { backgroundColor: "#FFFFFF08", borderColor: "#FFFFFF15" }]}>
+                  <ActivityIndicator color={colors.primary} />
+                  <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading more…</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Hint labels */}
+            <View style={styles.hintRow}>
+              <View style={[styles.hintPill, { backgroundColor: "#EF444418", borderColor: "#EF444430" }]}>
+                <Feather name="x" size={12} color="#EF4444" />
+                <Text style={[styles.hintText, { color: "#EF4444" }]}>Skip</Text>
+              </View>
+              <Text style={[styles.hintCenter, { color: "#FFFFFF30" }]}>swipe to decide</Text>
+              <View style={[styles.hintPill, { backgroundColor: "#22C55E18", borderColor: "#22C55E30" }]}>
+                <Text style={[styles.hintText, { color: "#22C55E" }]}>Save</Text>
+                <Feather name="heart" size={12} color="#22C55E" />
+              </View>
+            </View>
+
+            {/* Action buttons */}
+            <View style={styles.actionRow}>
+              <AnimatedActionButton
+                direction="left"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  topCardRef.current?.swipeLeft();
+                }}
+              />
+              <Pressable
+                style={[styles.detailBtn, { backgroundColor: "#FFFFFF0C", borderColor: "#FFFFFF18" }]}
+                onPress={() => {
+                  const top = visibleCards[0];
+                  if (top) router.push(`/(home)/job/${top.id}`);
+                }}
+              >
+                <Feather name="info" size={20} color="#FFFFFF60" />
+              </Pressable>
+              <AnimatedActionButton
+                direction="right"
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+                  topCardRef.current?.swipeRight();
+                }}
+              />
+            </View>
+          </>
+        )}
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -587,53 +428,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoMark: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "800",
+    color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
     letterSpacing: -0.5,
   },
+  headerSub: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    marginTop: 1,
+  },
   headerRight: { flexDirection: "row", gap: 8, alignItems: "center" },
-  guestBadge: {
+  signUpPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  guestBadgeText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  countBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
-  countText: { fontSize: 13, fontFamily: "Inter_400Regular" },
-  filterArea: { paddingBottom: 4, gap: 8 },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginHorizontal: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", padding: 0 },
-  chipsRow: { paddingHorizontal: 16, gap: 8, flexDirection: "row", alignItems: "center" },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 100,
     borderWidth: 1,
   },
-  clearChip: { backgroundColor: "#EF444415" },
-  chipText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  chipDivider: { width: 1, height: 20, borderRadius: 1 },
+  signUpPillText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  searchPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  searchPillText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   cardStack: {
     flex: 1,
     marginHorizontal: 16,
@@ -650,21 +488,36 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   loadingText: { fontSize: 14, fontFamily: "Inter_400Regular", marginTop: 8 },
+  hintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 28,
+    paddingVertical: 8,
+  },
+  hintPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  hintText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  hintCenter: { fontSize: 11, fontFamily: "Inter_400Regular" },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 32,
     paddingVertical: 14,
-    borderTopWidth: 1,
     paddingBottom: 20,
   },
-  tipContainer: { flex: 1, alignItems: "center" },
-  tipText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   actionBtn: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -673,6 +526,14 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
+  detailBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+  },
   emptyIcon: {
     width: 90,
     height: 90,
@@ -680,6 +541,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
+    borderWidth: 1,
   },
   emptyTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", textAlign: "center" },
   emptySubtitle: {
@@ -687,43 +549,28 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     lineHeight: 22,
+    color: "#FFFFFF60",
   },
   refreshBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14, marginTop: 8 },
-  refreshBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
+  refreshBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
   // Signup wall modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "flex-end",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
   modalCard: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
     borderWidth: 1,
     borderBottomWidth: 0,
-    padding: 28,
-    paddingBottom: 40,
-    alignItems: "center",
-    gap: 14,
+    padding: 24,
+    gap: 16,
   },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 4,
-  },
+  modalHandle: { width: 40, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 4 },
   modalIconWrap: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    alignSelf: "center",
   },
   modalTitle: {
     fontSize: 24,
@@ -731,32 +578,24 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_700Bold",
     textAlign: "center",
     letterSpacing: -0.5,
-    lineHeight: 30,
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: "Inter_400Regular",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  benefitsCard: {
-    width: "100%",
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
-    marginVertical: 4,
-  },
+  benefitsCard: { borderRadius: 16, padding: 16, gap: 12 },
   benefitRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   benefitIcon: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   benefitText: { fontSize: 14, fontFamily: "Inter_400Regular", flex: 1 },
   googleBtn: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -765,32 +604,25 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
   },
-  googleBtnText: {
-    color: "#09090B",
-    fontSize: 15,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
+  googleBtnText: { fontSize: 15, fontWeight: "600", color: "#09090B", fontFamily: "Inter_600SemiBold" },
   modalPrimaryBtn: {
-    width: "100%",
     paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
   },
   modalPrimaryBtnText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
+    color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
   },
   modalSecondaryBtn: {
-    width: "100%",
-    paddingVertical: 13,
+    paddingVertical: 14,
     borderRadius: 14,
     alignItems: "center",
     borderWidth: 1,
   },
-  modalSecondaryBtnText: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium" },
-  modalDismiss: { paddingVertical: 6 },
-  modalDismissText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  modalSecondaryBtnText: { fontSize: 15, fontFamily: "Inter_400Regular" },
+  modalDismiss: { alignItems: "center", paddingVertical: 4 },
+  modalDismissText: { fontSize: 14, fontFamily: "Inter_400Regular" },
 });

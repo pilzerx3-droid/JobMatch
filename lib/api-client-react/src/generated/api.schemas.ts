@@ -640,6 +640,14 @@ search?: string;
 jobType?: GetJobsJobType;
 experienceLevel?: GetJobsExperienceLevel;
 remoteType?: GetJobsRemoteType;
+/**
+ * Filter by city, region, or country (partial match)
+ */
+location?: string;
+/**
+ * Filter by job category or industry
+ */
+category?: string;
 };
 
 export type GetJobsJobType = typeof GetJobsJobType[keyof typeof GetJobsJobType];

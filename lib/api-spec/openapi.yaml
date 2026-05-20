@@ -154,6 +154,16 @@ paths:
           schema:
             type: string
             enum: [remote, hybrid, onsite]
+        - name: location
+          in: query
+          description: Filter by city, region, or country (partial match)
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Filter by job category or industry
+          schema:
+            type: string
       responses:
         "200":
           description: Job feed

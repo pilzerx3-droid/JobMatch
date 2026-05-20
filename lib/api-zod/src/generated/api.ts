@@ -183,7 +183,9 @@ export const GetJobsQueryParams = zod.object({
   "search": zod.coerce.string().optional().describe('Full-text search across job title, description, and tags'),
   "jobType": zod.enum(['fulltime', 'contract', 'parttime', 'internship']).optional(),
   "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive', 'any']).optional(),
-  "remoteType": zod.enum(['remote', 'hybrid', 'onsite']).optional()
+  "remoteType": zod.enum(['remote', 'hybrid', 'onsite']).optional(),
+  "location": zod.coerce.string().optional().describe('Filter by city, region, or country (partial match)'),
+  "category": zod.coerce.string().optional().describe('Filter by job category or industry')
 })
 
 export const GetJobsResponse = zod.object({
