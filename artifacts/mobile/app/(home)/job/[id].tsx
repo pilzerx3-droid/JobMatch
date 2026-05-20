@@ -290,6 +290,7 @@ export default function JobDetailScreen() {
       </View>
       <EasyApplySheet
         visible={showEasyApplySheet}
+        jobId={jobId}
         jobTitle={job.title}
         companyName={job.company.name}
         onConfirm={handleConfirmEasyApply}

@@ -806,3 +806,75 @@ export const SendAnthropicMessageBody = zod.object({
 })
 
 
+/**
+ * @summary AI-generate a tailored cover letter for a job
+ */
+export const PrepareApplicationBody = zod.object({
+  "jobId": zod.number()
+})
+
+export const PrepareApplicationResponse = zod.object({
+  "coverLetter": zod.string(),
+  "summary": zod.string(),
+  "keyPoints": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Request a presigned URL for direct-to-GCS file upload
+ */
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+})
+
+
+/**
+ * @summary List the current user's uploaded documents
+ */
+export const GetMyDocumentsResponse = zod.object({
+  "documents": zod.array(zod.object({
+  "id": zod.number(),
+  "userId": zod.number(),
+  "name": zod.string(),
+  "type": zod.enum(['resume', 'cover_letter', 'portfolio', 'other']),
+  "objectPath": zod.string(),
+  "mimeType": zod.string().nullish(),
+  "sizeBytes": zod.number().nullish(),
+  "extractedText": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Register an uploaded document after GCS upload
+ */
+export const RegisterDocumentBody = zod.object({
+  "name": zod.string(),
+  "type": zod.enum(['resume', 'cover_letter', 'portfolio', 'other']),
+  "objectPath": zod.string(),
+  "mimeType": zod.string().optional(),
+  "sizeBytes": zod.number().optional()
+})
+
+
+/**
+ * @summary Delete a user document
+ */
+export const DeleteDocumentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+

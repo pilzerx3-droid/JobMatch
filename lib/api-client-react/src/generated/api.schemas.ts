@@ -558,6 +558,78 @@ export interface AnthropicError {
   error: string;
 }
 
+export interface PrepareApplicationRequest {
+  jobId: number;
+}
+
+export interface PrepareApplicationResponse {
+  coverLetter: string;
+  summary: string;
+  keyPoints: string[];
+}
+
+export interface RequestUploadUrlBody {
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+export type RequestUploadUrlResponseMetadata = {
+  name: string;
+  size: number;
+  contentType: string;
+};
+
+export interface RequestUploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata: RequestUploadUrlResponseMetadata;
+}
+
+export type UserDocumentType = typeof UserDocumentType[keyof typeof UserDocumentType];
+
+
+export const UserDocumentType = {
+  resume: 'resume',
+  cover_letter: 'cover_letter',
+  portfolio: 'portfolio',
+  other: 'other',
+} as const;
+
+export interface UserDocument {
+  id: number;
+  userId: number;
+  name: string;
+  type: UserDocumentType;
+  objectPath: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  extractedText?: string | null;
+  createdAt: string;
+}
+
+export interface UserDocumentsResponse {
+  documents: UserDocument[];
+}
+
+export type RegisterDocumentRequestType = typeof RegisterDocumentRequestType[keyof typeof RegisterDocumentRequestType];
+
+
+export const RegisterDocumentRequestType = {
+  resume: 'resume',
+  cover_letter: 'cover_letter',
+  portfolio: 'portfolio',
+  other: 'other',
+} as const;
+
+export interface RegisterDocumentRequest {
+  name: string;
+  type: RegisterDocumentRequestType;
+  objectPath: string;
+  mimeType?: string;
+  sizeBytes?: number;
+}
+
 export type GetJobsParams = {
 page?: number;
 limit?: number;

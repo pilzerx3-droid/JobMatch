@@ -10,3 +10,4 @@ export * from "./userMetrics";
 export * from "./applications";
 export * from "./conversations";
 export * from "./messages";
+export * from "./userDocuments";

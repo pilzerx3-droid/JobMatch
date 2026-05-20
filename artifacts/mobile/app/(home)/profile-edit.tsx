@@ -2,12 +2,19 @@ import {
   useGetMyProfile,
   useUpdateMyProfile,
   getGetMyProfileQueryKey,
+  useGetMyDocuments,
+  useRegisterDocument,
+  useDeleteDocument,
+  useRequestUploadUrl,
+  getGetMyDocumentsQueryKey,
 } from "@workspace/api-client-react";
 import { Feather } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +26,29 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useColors } from "@/hooks/useColors";
+
+const DOC_TYPES = [
+  { value: "resume", label: "Resume / CV" },
+  { value: "cover_letter", label: "Cover Letter" },
+  { value: "portfolio", label: "Portfolio" },
+  { value: "other", label: "Other" },
+] as const;
+
+type DocType = (typeof DOC_TYPES)[number]["value"];
+
+function docTypeLabel(type: string) {
+  return DOC_TYPES.find((d) => d.value === type)?.label ?? type;
+}
+
+function docTypeColor(type: string, primary: string) {
+  const map: Record<string, string> = {
+    resume: primary,
+    cover_letter: "#8B5CF6",
+    portfolio: "#10B981",
+    other: "#6B7280",
+  };
+  return map[type] ?? "#6B7280";
+}
 
 export default function ProfileEditScreen() {
   const colors = useColors();
@@ -34,6 +64,22 @@ export default function ProfileEditScreen() {
     },
   });
 
+  const { data: docsData, refetch: refetchDocs } = useGetMyDocuments({
+    query: { queryKey: getGetMyDocumentsQueryKey() },
+  });
+  const documents = docsData?.documents ?? [];
+
+  const { mutateAsync: requestUploadUrl } = useRequestUploadUrl();
+  const { mutateAsync: registerDocument } = useRegisterDocument();
+  const { mutate: deleteDocument } = useDeleteDocument({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetMyDocumentsQueryKey() });
+      },
+    },
+  });
+
+  const [isUploading, setIsUploading] = useState(false);
   const [headline, setHeadline] = useState("");
   const [bio, setBio] = useState("");
   const [yearsExp, setYearsExp] = useState("");
@@ -80,6 +126,74 @@ export default function ProfileEditScreen() {
         portfolioUrl: portfolioUrl.trim() || undefined,
       },
     });
+  };
+
+  const handleUploadDocument = async (type: DocType) => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "text/plain"],
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled) return;
+      const file = result.assets[0];
+      if (!file) return;
+
+      setIsUploading(true);
+
+      const mimeType = file.mimeType ?? "application/octet-stream";
+      const sizeBytes = file.size ?? 0;
+
+      const { uploadURL, objectPath } = await requestUploadUrl({
+        data: { name: file.name, size: sizeBytes, contentType: mimeType },
+      });
+
+      const fileResponse = await fetch(file.uri);
+      const blob = await fileResponse.blob();
+      await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": mimeType },
+        body: blob,
+      });
+
+      await registerDocument({
+        data: {
+          name: file.name,
+          type,
+          objectPath,
+          mimeType,
+          sizeBytes,
+        },
+      });
+
+      await refetchDocs();
+    } catch (err) {
+      Alert.alert("Upload failed", "Could not upload the document. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleChooseAndUpload = () => {
+    Alert.alert("Document Type", "What type of document is this?", [
+      ...DOC_TYPES.map((t) => ({
+        text: t.label,
+        onPress: () => handleUploadDocument(t.value),
+      })),
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const handleDeleteDoc = (id: number, name: string) => {
+    Alert.alert("Remove Document", `Remove "${name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => deleteDocument({ id }),
+      },
+    ]);
   };
 
   if (isLoading) {
@@ -230,6 +344,82 @@ export default function ProfileEditScreen() {
           </View>
         </View>
 
+        {/* Documents section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Documents</Text>
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+            Upload your resume, cover letter, or portfolio. The AI assistant reads these to give personalised advice and auto-prepare applications.
+          </Text>
+
+          {documents.length > 0 && (
+            <View style={styles.docList}>
+              {documents.map((doc) => {
+                const accent = docTypeColor(doc.type, colors.primary);
+                return (
+                  <View
+                    key={doc.id}
+                    style={[styles.docRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  >
+                    <View style={[styles.docIcon, { backgroundColor: accent + "18" }]}>
+                      <Feather name="file-text" size={16} color={accent} />
+                    </View>
+                    <View style={styles.docMeta}>
+                      <Text style={[styles.docName, { color: colors.foreground }]} numberOfLines={1}>
+                        {doc.name}
+                      </Text>
+                      <View style={styles.docTagRow}>
+                        <View style={[styles.docTag, { backgroundColor: accent + "18" }]}>
+                          <Text style={[styles.docTagText, { color: accent }]}>
+                            {docTypeLabel(doc.type)}
+                          </Text>
+                        </View>
+                        {doc.extractedText ? (
+                          <Text style={[styles.docParsed, { color: "#22C55E" }]}>
+                            <Feather name="check" size={10} color="#22C55E" /> AI-ready
+                          </Text>
+                        ) : (
+                          <Text style={[styles.docParsed, { color: colors.mutedForeground }]}>
+                            Processing…
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Pressable
+                      onPress={() => handleDeleteDoc(doc.id, doc.name)}
+                      hitSlop={8}
+                      style={styles.docDelete}
+                    >
+                      <Feather name="trash-2" size={16} color={colors.mutedForeground} />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          <Pressable
+            style={[styles.uploadBtn, { borderColor: colors.border, backgroundColor: colors.card }]}
+            onPress={handleChooseAndUpload}
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <ActivityIndicator color={colors.primary} size="small" />
+            ) : (
+              <>
+                <View style={[styles.uploadIcon, { backgroundColor: colors.primary + "15" }]}>
+                  <Feather name="upload" size={16} color={colors.primary} />
+                </View>
+                <Text style={[styles.uploadText, { color: colors.foreground }]}>
+                  Upload Document
+                </Text>
+                <Text style={[styles.uploadSub, { color: colors.mutedForeground }]}>
+                  PDF, DOCX, TXT
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+
         <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>
@@ -284,4 +474,46 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   linkInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
+  docList: { gap: 8 },
+  docRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  docIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  docMeta: { flex: 1, gap: 4 },
+  docName: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  docTagRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  docTag: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 100 },
+  docTagText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  docParsed: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  docDelete: { padding: 4 },
+  uploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginTop: 4,
+  },
+  uploadIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  uploadText: { flex: 1, fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  uploadSub: { fontSize: 12, fontFamily: "Inter_400Regular" },
 });

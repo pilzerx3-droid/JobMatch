@@ -24,6 +24,10 @@ tags:
     description: Anthropic AI career assistant operations
   - name: applications
     description: Job application operations
+  - name: storage
+    description: File upload and object storage operations
+  - name: documents
+    description: User document management
 
 paths:
   /healthz:
@@ -760,6 +764,99 @@ paths:
           description: SSE stream of assistant response chunks
           content:
             text/event-stream: {}
+
+  /anthropic/prepare-application:
+    post:
+      operationId: prepareApplication
+      tags: [anthropic]
+      summary: AI-generate a tailored cover letter for a job
+      security:
+        - clerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrepareApplicationRequest"
+      responses:
+        "200":
+          description: Prepared application materials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrepareApplicationResponse"
+
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned URL for direct-to-GCS file upload
+      security:
+        - clerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestUploadUrlBody"
+      responses:
+        "200":
+          description: Presigned upload URL and object path
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestUploadUrlResponse"
+
+  /users/me/documents:
+    get:
+      operationId: getMyDocuments
+      tags: [documents]
+      summary: List the current user's uploaded documents
+      security:
+        - clerkAuth: []
+      responses:
+        "200":
+          description: User documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDocumentsResponse"
+    post:
+      operationId: registerDocument
+      tags: [documents]
+      summary: Register an uploaded document after GCS upload
+      security:
+        - clerkAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDocumentRequest"
+      responses:
+        "201":
+          description: Registered document record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDocument"
+
+  /users/me/documents/{id}:
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete a user document
+      security:
+        - clerkAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
 
 components:
   securitySchemes:
@@ -1580,3 +1677,129 @@ components:
           type: string
       required:
         - error
+
+    PrepareApplicationRequest:
+      type: object
+      properties:
+        jobId:
+          type: integer
+      required:
+        - jobId
+
+    PrepareApplicationResponse:
+      type: object
+      properties:
+        coverLetter:
+          type: string
+        summary:
+          type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+      required:
+        - coverLetter
+        - summary
+        - keyPoints
+
+    RequestUploadUrlBody:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+      required:
+        - name
+        - size
+        - contentType
+
+    RequestUploadUrlResponse:
+      type: object
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            size:
+              type: integer
+            contentType:
+              type: string
+          required:
+            - name
+            - size
+            - contentType
+      required:
+        - uploadURL
+        - objectPath
+        - metadata
+
+    UserDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [resume, cover_letter, portfolio, other]
+        objectPath:
+          type: string
+        mimeType:
+          type: string
+          nullable: true
+        sizeBytes:
+          type: integer
+          nullable: true
+        extractedText:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - name
+        - type
+        - objectPath
+        - createdAt
+
+    UserDocumentsResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserDocument"
+      required:
+        - documents
+
+    RegisterDocumentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [resume, cover_letter, portfolio, other]
+        objectPath:
+          type: string
+        mimeType:
+          type: string
+        sizeBytes:
+          type: integer
+      required:
+        - name
+        - type
+        - objectPath
