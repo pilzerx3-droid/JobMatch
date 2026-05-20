@@ -1,9 +1,9 @@
 import Stripe from "stripe";
 import { StripeSync } from "stripe-replit-sync";
 
-async function getStripeCredentials(): Promise<{
+async function getCredentials(): Promise<{
+  publishableKey: string;
   secretKey: string;
-  webhookSecret?: string;
 }> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
@@ -19,13 +19,21 @@ async function getStripeCredentials(): Promise<{
     );
   }
 
-  const resp = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=stripe`,
-    {
-      headers: { Accept: "application/json", X_REPLIT_TOKEN: xReplitToken },
-      signal: AbortSignal.timeout(10_000),
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1";
+  const targetEnvironment = isProduction ? "production" : "development";
+
+  const url = new URL(`https://${hostname}/api/v2/connection`);
+  url.searchParams.set("include_secrets", "true");
+  url.searchParams.set("connector_names", "stripe");
+  url.searchParams.set("environment", targetEnvironment);
+
+  const resp = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
+      "X-Replit-Token": xReplitToken,
     },
-  );
+    signal: AbortSignal.timeout(10_000),
+  });
 
   if (!resp.ok) {
     throw new Error(
@@ -33,37 +41,51 @@ async function getStripeCredentials(): Promise<{
     );
   }
 
-  const data = await resp.json() as { items?: Array<{ settings?: { secret_key?: string; webhook_secret?: string } }> };
+  const data = (await resp.json()) as {
+    items?: Array<{
+      settings?: { publishable?: string; secret?: string };
+    }>;
+  };
+
   const settings = data.items?.[0]?.settings;
 
-  if (!settings?.secret_key) {
+  if (!settings?.publishable || !settings?.secret) {
     throw new Error(
-      "Stripe integration not connected or missing secret key. " +
+      `Stripe ${targetEnvironment} connection not found or missing keys. ` +
         "Connect Stripe via the Integrations tab first.",
     );
   }
 
   return {
-    secretKey: settings.secret_key,
-    webhookSecret: settings.webhook_secret,
+    publishableKey: settings.publishable,
+    secretKey: settings.secret,
   };
 }
 
+// WARNING: Never cache — tokens can rotate.
 export async function getUncachableStripeClient(): Promise<Stripe> {
-  const { secretKey } = await getStripeCredentials();
-  return new Stripe(secretKey);
+  const { secretKey } = await getCredentials();
+  return new Stripe(secretKey, { apiVersion: "2025-08-27.basil" });
 }
 
-export async function getStripeSync(): Promise<StripeSync> {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL environment variable is required");
-  }
+export async function getStripePublishableKey(): Promise<string> {
+  const { publishableKey } = await getCredentials();
+  return publishableKey;
+}
 
-  const { secretKey, webhookSecret } = await getStripeCredentials();
-  return new StripeSync({
-    poolConfig: { connectionString: databaseUrl },
-    stripeSecretKey: secretKey,
-    stripeWebhookSecret: webhookSecret ?? "",
-  });
+// Singleton StripeSync for webhook processing and data sync
+let stripeSync: StripeSync | null = null;
+
+export async function getStripeSync(): Promise<StripeSync> {
+  if (!stripeSync) {
+    const { secretKey } = await getCredentials();
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error("DATABASE_URL required");
+
+    stripeSync = new StripeSync({
+      poolConfig: { connectionString: databaseUrl, max: 2 },
+      stripeSecretKey: secretKey,
+    });
+  }
+  return stripeSync;
 }
