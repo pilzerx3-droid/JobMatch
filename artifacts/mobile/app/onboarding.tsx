@@ -43,6 +43,7 @@ const JOB_CATEGORIES = [
 export default function OnboardingScreen() {
   const colors = useColors();
   const { mutate: completeOnboarding, isPending } = useCompleteOnboarding();
+  const { mutate: registerPushToken } = useRegisterPushToken();
 
   const [step, setStep] = useState(0);
   const [experienceLevel, setExperienceLevel] = useState("");
@@ -64,6 +65,26 @@ export default function OnboardingScreen() {
     return true;
   };
 
+  const requestPushPermission = async () => {
+    try {
+      if (Platform.OS === "web") return;
+      const { status: existing } = await Notifications.getPermissionsAsync();
+      let finalStatus = existing;
+      if (existing !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus === "granted") {
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        registerPushToken({
+          data: { token: tokenData.data, platform: Platform.OS as any },
+        });
+      }
+    } catch {
+      // Push permission is best-effort; never block onboarding
+    }
+  };
+
   const handleComplete = () => {
     completeOnboarding(
       {
@@ -76,7 +97,10 @@ export default function OnboardingScreen() {
         },
       },
       {
-        onSuccess: () => router.replace("/(home)/(tabs)"),
+        onSuccess: () => {
+          requestPushPermission();
+          router.replace("/(home)/(tabs)");
+        },
       }
     );
   };

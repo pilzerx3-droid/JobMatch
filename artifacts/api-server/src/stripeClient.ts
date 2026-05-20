@@ -65,7 +65,7 @@ async function getCredentials(): Promise<{
 // WARNING: Never cache — tokens can rotate.
 export async function getUncachableStripeClient(): Promise<Stripe> {
   const { secretKey } = await getCredentials();
-  return new Stripe(secretKey, { apiVersion: "2025-08-27.basil" });
+  return new Stripe(secretKey, { apiVersion: "2026-04-22.dahlia" });
 }
 
 export async function getStripePublishableKey(): Promise<string> {
@@ -73,19 +73,14 @@ export async function getStripePublishableKey(): Promise<string> {
   return publishableKey;
 }
 
-// Singleton StripeSync for webhook processing and data sync
-let stripeSync: StripeSync | null = null;
-
+// Returns a fresh StripeSync instance — not cached so schema changes are picked up.
 export async function getStripeSync(): Promise<StripeSync> {
-  if (!stripeSync) {
-    const { secretKey } = await getCredentials();
-    const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) throw new Error("DATABASE_URL required");
+  const { secretKey } = await getCredentials();
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new Error("DATABASE_URL required");
 
-    stripeSync = new StripeSync({
-      poolConfig: { connectionString: databaseUrl, max: 2 },
-      stripeSecretKey: secretKey,
-    });
-  }
-  return stripeSync;
+  return new StripeSync({
+    poolConfig: { connectionString: databaseUrl, max: 2 },
+    stripeSecretKey: secretKey,
+  });
 }
