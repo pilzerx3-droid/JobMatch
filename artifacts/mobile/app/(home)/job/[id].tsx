@@ -65,6 +65,8 @@ export default function JobDetailScreen() {
     },
   });
 
+  const { mutate: trackClick } = useTrackJobClick();
+
   if (isLoading || !job) {
     return (
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
@@ -76,8 +78,6 @@ export default function JobDetailScreen() {
   const salary = formatSalary(job.salaryMin, job.salaryMax);
   const remoteColor = REMOTE_COLORS[job.remoteType] ?? "#6B7280";
   const initials = job.company.name.substring(0, 2).toUpperCase();
-
-  const { mutate: trackClick } = useTrackJobClick();
 
   const handleApply = () => {
     trackClick({ jobId: job.id, data: { source: "apply_button" } });
