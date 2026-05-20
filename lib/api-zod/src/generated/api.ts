@@ -104,9 +104,10 @@ export const getJobsQueryLimitDefault = 10;
 export const GetJobsQueryParams = zod.object({
   "page": zod.coerce.number().default(getJobsQueryPageDefault),
   "limit": zod.coerce.number().default(getJobsQueryLimitDefault),
-  "experienceLevel": zod.coerce.string().optional(),
-  "remoteType": zod.coerce.string().optional(),
-  "category": zod.coerce.string().optional()
+  "search": zod.coerce.string().optional().describe('Full-text search across job title, description, and tags'),
+  "jobType": zod.enum(['fulltime', 'contract', 'parttime', 'internship']).optional(),
+  "experienceLevel": zod.enum(['junior', 'mid', 'senior', 'lead', 'executive', 'any']).optional(),
+  "remoteType": zod.enum(['remote', 'hybrid', 'onsite']).optional()
 })
 
 export const GetJobsResponse = zod.object({

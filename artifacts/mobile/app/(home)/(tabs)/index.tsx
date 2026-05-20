@@ -3,6 +3,8 @@ import {
   useSwipeJob,
   getGetJobsQueryKey,
   getGetSavedJobsQueryKey,
+  GetJobsJobType,
+  GetJobsExperienceLevel,
   type Job,
 } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/expo";
@@ -13,8 +15,10 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,6 +28,54 @@ import { SwipeCard } from "@/components/SwipeCard";
 import { useColors } from "@/hooks/useColors";
 
 const GUEST_SWIPE_LIMIT = 5;
+
+const JOB_TYPE_CHIPS = [
+  { label: "Full-time", value: "fulltime" },
+  { label: "Contract", value: "contract" },
+  { label: "Part-time", value: "parttime" },
+  { label: "Intern", value: "internship" },
+];
+
+const EXP_CHIPS = [
+  { label: "Junior", value: "junior" },
+  { label: "Mid", value: "mid" },
+  { label: "Senior", value: "senior" },
+  { label: "Lead", value: "lead" },
+];
+
+function FilterChip({
+  label,
+  active,
+  onPress,
+  colors,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: active ? colors.primary : colors.card,
+          borderColor: active ? colors.primary : colors.border,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.chipText,
+          { color: active ? "#FFFFFF" : colors.mutedForeground },
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 function SignupWallModal({
   visible,
@@ -37,15 +89,15 @@ function SignupWallModal({
   canDismiss: boolean;
 }) {
   const colors = useColors();
-
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View
+          style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <View style={[styles.modalIconWrap, { backgroundColor: colors.primary + "20" }]}>
             <Feather name="lock" size={28} color={colors.primary} />
           </View>
-
           <Text style={[styles.modalTitle, { color: colors.foreground }]}>
             {trigger === "save" ? "Save this job" : "Keep discovering"}
           </Text>
@@ -54,7 +106,6 @@ function SignupWallModal({
               ? "Create a free account to save jobs and track your applications."
               : `You've reviewed ${GUEST_SWIPE_LIMIT} jobs as a guest. Sign up to keep discovering personalized matches.`}
           </Text>
-
           <View style={styles.modalBenefits}>
             {["Save your favourite jobs", "Personalized match scores", "Track applications"].map(
               (b) => (
@@ -65,7 +116,6 @@ function SignupWallModal({
               )
             )}
           </View>
-
           <Pressable
             style={({ pressed }) => [
               styles.modalPrimaryBtn,
@@ -75,7 +125,6 @@ function SignupWallModal({
           >
             <Text style={styles.modalPrimaryBtnText}>Create Free Account</Text>
           </Pressable>
-
           <Pressable
             style={({ pressed }) => [
               styles.modalSecondaryBtn,
@@ -87,7 +136,6 @@ function SignupWallModal({
               I already have an account
             </Text>
           </Pressable>
-
           {canDismiss && (
             <Pressable style={styles.modalDismiss} onPress={onDismiss}>
               <Text style={[styles.modalDismissText, { color: colors.mutedForeground }]}>
@@ -110,14 +158,76 @@ export default function DiscoverScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const loadedJobIds = useRef(new Set<number>());
+
   const guestSwipeCount = useRef(0);
   const [showSignupWall, setShowSignupWall] = useState(false);
   const [signupTrigger, setSignupTrigger] = useState<"save" | "limit">("limit");
   const [signupCanDismiss, setSignupCanDismiss] = useState(true);
 
-  const jobsParams = { page, limit: 10 };
+  const [searchText, setSearchText] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [jobTypeFilter, setJobTypeFilter] = useState("");
+  const [expFilter, setExpFilter] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const hasActiveFilters = !!(appliedSearch || jobTypeFilter || expFilter);
+
+  const resetQueue = useCallback(() => {
+    loadedJobIds.current.clear();
+    setJobQueue([]);
+    setPage(1);
+    setHasMore(true);
+  }, []);
+
+  const handleSearchChange = useCallback(
+    (text: string) => {
+      setSearchText(text);
+      clearTimeout(searchDebounceRef.current);
+      searchDebounceRef.current = setTimeout(() => {
+        setAppliedSearch(text.trim());
+        resetQueue();
+      }, 400);
+    },
+    [resetQueue]
+  );
+
+  const toggleJobType = useCallback(
+    (value: string) => {
+      setJobTypeFilter((prev) => (prev === value ? "" : value));
+      resetQueue();
+    },
+    [resetQueue]
+  );
+
+  const toggleExp = useCallback(
+    (value: string) => {
+      setExpFilter((prev) => (prev === value ? "" : value));
+      resetQueue();
+    },
+    [resetQueue]
+  );
+
+  const clearAllFilters = useCallback(() => {
+    setSearchText("");
+    setAppliedSearch("");
+    setJobTypeFilter("");
+    setExpFilter("");
+    resetQueue();
+  }, [resetQueue]);
+
+  const jobsParams = {
+    page,
+    limit: 10,
+    ...(appliedSearch ? { search: appliedSearch } : {}),
+    ...(jobTypeFilter ? { jobType: jobTypeFilter as GetJobsJobType } : {}),
+    ...(expFilter ? { experienceLevel: expFilter as GetJobsExperienceLevel } : {}),
+  };
+
   const { data, isLoading, isFetching } = useGetJobs(jobsParams, {
-    query: { queryKey: getGetJobsQueryKey(jobsParams), enabled: hasMore && jobQueue.length < 5 },
+    query: {
+      queryKey: getGetJobsQueryKey(jobsParams),
+      enabled: hasMore && jobQueue.length < 5,
+    },
   });
 
   useEffect(() => {
@@ -141,10 +251,7 @@ export default function DiscoverScreen() {
   const handleSwipe = useCallback(
     (direction: "left" | "right", job: Job) => {
       setJobQueue((prev) => prev.filter((j) => j.id !== job.id));
-
-      if (jobQueue.length <= 4 && hasMore) {
-        setPage((p) => p + 1);
-      }
+      if (jobQueue.length <= 4 && hasMore) setPage((p) => p + 1);
 
       if (!isSignedIn) {
         guestSwipeCount.current += 1;
@@ -169,12 +276,9 @@ export default function DiscoverScreen() {
   );
 
   const handleRefresh = () => {
-    loadedJobIds.current.clear();
     guestSwipeCount.current = 0;
-    setJobQueue([]);
-    setPage(1);
-    setHasMore(true);
     setShowSignupWall(false);
+    clearAllFilters();
   };
 
   const isInitialLoad = isLoading && jobQueue.length === 0;
@@ -185,28 +289,8 @@ export default function DiscoverScreen() {
       <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color={colors.primary} size="large" />
         <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-          Finding your matches…
+          {appliedSearch ? `Searching "${appliedSearch}"…` : "Finding your matches…"}
         </Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (isEmpty) {
-    return (
-      <SafeAreaView style={[styles.center, { backgroundColor: colors.background }]}>
-        <View style={[styles.emptyIcon, { backgroundColor: colors.card }]}>
-          <Feather name="briefcase" size={40} color={colors.mutedForeground} />
-        </View>
-        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>You're all caught up!</Text>
-        <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
-          You've reviewed all available jobs. Check back soon for new listings.
-        </Text>
-        <Pressable
-          style={[styles.refreshBtn, { backgroundColor: colors.primary }]}
-          onPress={handleRefresh}
-        >
-          <Text style={styles.refreshBtnText}>Start Over</Text>
-        </Pressable>
       </SafeAreaView>
     );
   }
@@ -227,14 +311,22 @@ export default function DiscoverScreen() {
         <View style={styles.headerRight}>
           {!isSignedIn && (
             <Pressable
-              style={[styles.guestBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
+              style={[
+                styles.guestBadge,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
               onPress={() => router.push("/(auth)/sign-up")}
             >
-              <Feather name="user-plus" size={14} color={colors.primary} />
+              <Feather name="user-plus" size={13} color={colors.primary} />
               <Text style={[styles.guestBadgeText, { color: colors.primary }]}>Sign up</Text>
             </Pressable>
           )}
-          <View style={[styles.countBadge, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.countBadge,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.countText, { color: colors.mutedForeground }]}>
               {jobQueue.length} left
             </Text>
@@ -242,82 +334,167 @@ export default function DiscoverScreen() {
         </View>
       </View>
 
-      {!isSignedIn && (
-        <View style={[styles.guestBanner, { backgroundColor: colors.card + "CC", borderColor: colors.border }]}>
-          <Feather name="info" size={13} color={colors.mutedForeground} />
-          <Text style={[styles.guestBannerText, { color: colors.mutedForeground }]}>
-            Browsing as guest · {Math.max(0, GUEST_SWIPE_LIMIT - guestSwipeCount.current)} swipes left
-          </Text>
+      <View style={styles.filterArea}>
+        <View
+          style={[
+            styles.searchBar,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <Feather name="search" size={16} color={colors.mutedForeground} />
+          <TextInput
+            style={[styles.searchInput, { color: colors.foreground }]}
+            placeholder="Search jobs, skills, companies…"
+            placeholderTextColor={colors.mutedForeground}
+            value={searchText}
+            onChangeText={handleSearchChange}
+            returnKeyType="search"
+            clearButtonMode="never"
+          />
+          {searchText ? (
+            <Pressable onPress={() => handleSearchChange("")} hitSlop={8}>
+              <Feather name="x" size={16} color={colors.mutedForeground} />
+            </Pressable>
+          ) : null}
         </View>
-      )}
 
-      <View style={styles.cardStack}>
-        {[...visibleCards].reverse().map((job, reversedIndex) => {
-          const stackIndex = visibleCards.length - 1 - reversedIndex;
-          const isTop = stackIndex === 0;
-          return (
-            <SwipeCard
-              key={job.id}
-              job={job}
-              isTop={isTop}
-              stackIndex={stackIndex}
-              onSwipeLeft={() => handleSwipe("left", job)}
-              onSwipeRight={() => handleSwipe("right", job)}
-              onPress={() => router.push(`/(home)/job/${job.id}`)}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          {JOB_TYPE_CHIPS.map((c) => (
+            <FilterChip
+              key={c.value}
+              label={c.label}
+              active={jobTypeFilter === c.value}
+              onPress={() => toggleJobType(c.value)}
+              colors={colors}
             />
-          );
-        })}
+          ))}
+          <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
+          {EXP_CHIPS.map((c) => (
+            <FilterChip
+              key={c.value}
+              label={c.label}
+              active={expFilter === c.value}
+              onPress={() => toggleExp(c.value)}
+              colors={colors}
+            />
+          ))}
+          {hasActiveFilters && (
+            <>
+              <View style={[styles.chipDivider, { backgroundColor: colors.border }]} />
+              <Pressable
+                onPress={clearAllFilters}
+                style={[styles.chip, styles.clearChip, { borderColor: "#EF4444" }]}
+              >
+                <Feather name="x" size={12} color="#EF4444" />
+                <Text style={[styles.chipText, { color: "#EF4444" }]}>Clear</Text>
+              </Pressable>
+            </>
+          )}
+        </ScrollView>
+      </View>
 
-        {isFetching && jobQueue.length < 3 && (
-          <View
-            style={[styles.loadingCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
-            <ActivityIndicator color={colors.primary} />
-            <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-              Loading more…
-            </Text>
+      {isEmpty ? (
+        <View style={[styles.center, { flex: 1 }]}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.card }]}>
+            <Feather
+              name={hasActiveFilters ? "search" : "briefcase"}
+              size={40}
+              color={colors.mutedForeground}
+            />
           </View>
-        )}
-      </View>
-
-      <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
-        <Pressable
-          style={[styles.actionBtn, styles.skipBtn]}
-          onPress={() => {
-            if (jobQueue[0]) handleSwipe("left", jobQueue[0]);
-          }}
-        >
-          <Feather name="x" size={28} color="#EF4444" />
-        </Pressable>
-
-        <View style={styles.tipContainer}>
-          <Text style={[styles.tipText, { color: colors.mutedForeground }]}>
-            ← skip · save →
+          <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+            {hasActiveFilters ? "No matches found" : "You're all caught up!"}
           </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.mutedForeground }]}>
+            {hasActiveFilters
+              ? "Try adjusting your filters or search terms."
+              : "You've reviewed all available jobs. Check back soon."}
+          </Text>
+          <Pressable
+            style={[styles.refreshBtn, { backgroundColor: colors.primary }]}
+            onPress={handleRefresh}
+          >
+            <Text style={styles.refreshBtnText}>
+              {hasActiveFilters ? "Clear Filters" : "Start Over"}
+            </Text>
+          </Pressable>
         </View>
+      ) : (
+        <>
+          <View style={styles.cardStack}>
+            {[...visibleCards].reverse().map((job, reversedIndex) => {
+              const stackIndex = visibleCards.length - 1 - reversedIndex;
+              const isTop = stackIndex === 0;
+              return (
+                <SwipeCard
+                  key={job.id}
+                  job={job}
+                  isTop={isTop}
+                  stackIndex={stackIndex}
+                  onSwipeLeft={() => handleSwipe("left", job)}
+                  onSwipeRight={() => handleSwipe("right", job)}
+                  onPress={() => router.push(`/(home)/job/${job.id}`)}
+                />
+              );
+            })}
+            {isFetching && jobQueue.length < 3 && (
+              <View
+                style={[
+                  styles.loadingCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <ActivityIndicator color={colors.primary} />
+                <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+                  Loading more…
+                </Text>
+              </View>
+            )}
+          </View>
 
-        <Pressable
-          style={[styles.actionBtn, styles.saveBtn]}
-          onPress={() => {
-            if (jobQueue[0]) handleSwipe("right", jobQueue[0]);
-          }}
-        >
-          <Feather name="heart" size={28} color="#22C55E" />
-        </Pressable>
-      </View>
+          <View style={[styles.actionRow, { borderTopColor: colors.border }]}>
+            <Pressable
+              style={[styles.actionBtn, styles.skipBtn]}
+              onPress={() => {
+                if (jobQueue[0]) handleSwipe("left", jobQueue[0]);
+              }}
+            >
+              <Feather name="x" size={26} color="#EF4444" />
+            </Pressable>
+            <View style={styles.tipContainer}>
+              <Text style={[styles.tipText, { color: colors.mutedForeground }]}>
+                ← skip · save →
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.actionBtn, styles.saveBtn]}
+              onPress={() => {
+                if (jobQueue[0]) handleSwipe("right", jobQueue[0]);
+              }}
+            >
+              <Feather name="heart" size={26} color="#22C55E" />
+            </Pressable>
+          </View>
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 16 },
+  center: { alignItems: "center", justifyContent: "center", padding: 32, gap: 16 },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   headerTitle: {
     fontSize: 26,
@@ -331,25 +508,50 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 100,
     borderWidth: 1,
   },
   guestBadgeText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  guestBanner: {
+  countBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100, borderWidth: 1 },
+  countText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+
+  filterArea: { paddingBottom: 4, gap: 8 },
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 10,
     marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
     borderWidth: 1,
   },
-  guestBannerText: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  countBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1 },
-  countText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    padding: 0,
+  },
+  chipsRow: {
+    paddingHorizontal: 16,
+    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  clearChip: { backgroundColor: "#EF444415" },
+  chipText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  chipDivider: { width: 1, height: 20, borderRadius: 1 },
+
   cardStack: {
     flex: 1,
     marginHorizontal: 16,
@@ -358,7 +560,7 @@ const styles = StyleSheet.create({
   },
   loadingCard: {
     width: "100%",
-    height: 420,
+    height: 380,
     borderRadius: 24,
     borderWidth: 1,
     alignItems: "center",
@@ -371,27 +573,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 32,
-    paddingVertical: 16,
+    paddingVertical: 14,
     borderTopWidth: 1,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
   tipContainer: { flex: 1, alignItems: "center" },
   tipText: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   actionBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
   },
   skipBtn: { borderColor: "#EF4444", backgroundColor: "#EF444415" },
   saveBtn: { borderColor: "#22C55E", backgroundColor: "#22C55E15" },
+
   emptyIcon: { width: 90, height: 90, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 8 },
   emptyTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", textAlign: "center" },
   emptySubtitle: { fontSize: 15, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
   refreshBtn: { paddingHorizontal: 28, paddingVertical: 14, borderRadius: 14, marginTop: 8 },
   refreshBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.7)",
@@ -407,14 +611,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
   },
-  modalIconWrap: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
+  modalIconWrap: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center", marginBottom: 4 },
   modalTitle: { fontSize: 22, fontWeight: "800", fontFamily: "Inter_700Bold", textAlign: "center" },
   modalSubtitle: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
   modalBenefits: { width: "100%", gap: 8, marginVertical: 4 },

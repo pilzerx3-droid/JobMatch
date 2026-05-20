@@ -6,7 +6,7 @@ import {
   swipeActionsTable,
   userProfilesTable,
 } from "@workspace/db";
-import { eq, and, notInArray, desc, count } from "drizzle-orm";
+import { eq, and, notInArray, desc, count, ilike, or, sql } from "drizzle-orm";
 import { optionalAuth, requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import { syncFromRemotive, jobsCount } from "../services/syncJobs";
 
@@ -98,6 +98,8 @@ router.get("/", optionalAuth, async (req, res, next) => {
     const {
       page = "1",
       limit = "10",
+      search,
+      jobType,
       experienceLevel,
       remoteType,
     } = req.query as Record<string, string>;
@@ -115,6 +117,17 @@ router.get("/", optionalAuth, async (req, res, next) => {
       }
     }
 
+    if (search && search.trim()) {
+      const q = `%${search.trim()}%`;
+      conditions.push(
+        or(
+          ilike(jobsTable.title, q),
+          ilike(jobsTable.shortDescription, q),
+          sql`${jobsTable.tags}::text ILIKE ${q}`
+        ) as any
+      );
+    }
+    if (jobType) conditions.push(eq(jobsTable.jobType, jobType) as any);
     if (experienceLevel) conditions.push(eq(jobsTable.experienceLevel, experienceLevel) as any);
     if (remoteType) conditions.push(eq(jobsTable.remoteType, remoteType) as any);
 

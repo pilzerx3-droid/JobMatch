@@ -5,11 +5,18 @@
  * SwipeJobs API - Tinder/TikTok for Jobs
  * OpenAPI spec version: 0.1.0
  */
+import type { GetJobsExperienceLevel } from './getJobsExperienceLevel';
+import type { GetJobsJobType } from './getJobsJobType';
+import type { GetJobsRemoteType } from './getJobsRemoteType';
 
 export type GetJobsParams = {
 page?: number;
 limit?: number;
-experienceLevel?: string;
-remoteType?: string;
-category?: string;
+/**
+ * Full-text search across job title, description, and tags
+ */
+search?: string;
+jobType?: GetJobsJobType;
+experienceLevel?: GetJobsExperienceLevel;
+remoteType?: GetJobsRemoteType;
 };

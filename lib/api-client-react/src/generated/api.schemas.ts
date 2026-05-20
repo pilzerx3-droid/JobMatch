@@ -313,10 +313,45 @@ export interface ImportResponse {
 export type GetJobsParams = {
 page?: number;
 limit?: number;
-experienceLevel?: string;
-remoteType?: string;
-category?: string;
+/**
+ * Full-text search across job title, description, and tags
+ */
+search?: string;
+jobType?: GetJobsJobType;
+experienceLevel?: GetJobsExperienceLevel;
+remoteType?: GetJobsRemoteType;
 };
+
+export type GetJobsJobType = typeof GetJobsJobType[keyof typeof GetJobsJobType];
+
+
+export const GetJobsJobType = {
+  fulltime: 'fulltime',
+  contract: 'contract',
+  parttime: 'parttime',
+  internship: 'internship',
+} as const;
+
+export type GetJobsExperienceLevel = typeof GetJobsExperienceLevel[keyof typeof GetJobsExperienceLevel];
+
+
+export const GetJobsExperienceLevel = {
+  junior: 'junior',
+  mid: 'mid',
+  senior: 'senior',
+  lead: 'lead',
+  executive: 'executive',
+  any: 'any',
+} as const;
+
+export type GetJobsRemoteType = typeof GetJobsRemoteType[keyof typeof GetJobsRemoteType];
+
+
+export const GetJobsRemoteType = {
+  remote: 'remote',
+  hybrid: 'hybrid',
+  onsite: 'onsite',
+} as const;
 
 export type AdminGetJobsParams = {
 page?: number;

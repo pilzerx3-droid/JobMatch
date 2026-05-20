@@ -104,18 +104,26 @@ paths:
           schema:
             type: integer
             default: 10
+        - name: search
+          in: query
+          description: Full-text search across job title, description, and tags
+          schema:
+            type: string
+        - name: jobType
+          in: query
+          schema:
+            type: string
+            enum: [fulltime, contract, parttime, internship]
         - name: experienceLevel
           in: query
           schema:
             type: string
+            enum: [junior, mid, senior, lead, executive, any]
         - name: remoteType
           in: query
           schema:
             type: string
-        - name: category
-          in: query
-          schema:
-            type: string
+            enum: [remote, hybrid, onsite]
       responses:
         "200":
           description: Job feed
